@@ -10,11 +10,8 @@ from enum import Enum, auto
 from typing import Iterator, Sequence, Tuple
 
 from github_runner_manager.metrics.runner import RunnerMetrics
-from github_runner_manager.types_.general import (
-    ProxyConfig,
-    RepoPolicyComplianceConfig,
-    SSHDebugConnection,
-)
+from github_runner_manager.types_ import ProxyConfig, SSHDebugConnection, \
+    RepoPolicyComplianceConfig
 from github_runner_manager.types_.github import GitHubPath
 
 logger = logging.getLogger(__name__)

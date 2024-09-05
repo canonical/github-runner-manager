@@ -15,7 +15,7 @@ from github_runner_manager.manager.cloud_runner_manager import HealthState
 from github_runner_manager.manager.github_runner_manager import GitHubRunnerState
 from github_runner_manager.manager.runner_manager import FlushMode, RunnerManager
 from github_runner_manager.metrics import events as metric_events
-from github_runner_manager.types_.general import ReactiveConfig
+from github_runner_manager.types_ import ReactiveConfig
 
 logger = logging.getLogger(__name__)
 
