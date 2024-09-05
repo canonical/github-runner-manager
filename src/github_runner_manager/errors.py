@@ -25,7 +25,6 @@ class IssueMetricEventError(Exception):
     """Represents an error when issuing a metric event."""
 
 
-
 class MetricsStorageError(Exception):
     """Base class for all metrics storage errors."""
 

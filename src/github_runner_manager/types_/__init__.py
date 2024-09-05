@@ -4,7 +4,7 @@
 """Package containing modules with type definitions."""
 from typing import Optional
 
-from pydantic import BaseModel, MongoDsn, AnyHttpUrl, validator, IPvAnyAddress, Field
+from pydantic import AnyHttpUrl, BaseModel, Field, IPvAnyAddress, MongoDsn, validator
 
 
 class ReactiveConfig(BaseModel):
