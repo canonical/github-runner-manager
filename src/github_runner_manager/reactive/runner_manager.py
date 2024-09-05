@@ -18,9 +18,10 @@ logger = logging.getLogger(__name__)
 MQ_URI_ENV_VAR = "MQ_URI"
 QUEUE_NAME_ENV_VAR = "QUEUE_NAME"
 REACTIVE_RUNNER_LOG_DIR = Path("/var/log/reactive_runner")
-REACTIVE_RUNNER_SCRIPT_FILE = "scripts/reactive_runner.py"
+
 PYTHON_BIN = "/usr/bin/python3"
-REACTIVE_RUNNER_CMD_LINE_PREFIX = f"{PYTHON_BIN} {REACTIVE_RUNNER_SCRIPT_FILE}"
+REACTIVE_RUNNER_SCRIPT_MODULE = "github_runner_manager.reactive.runner"
+REACTIVE_RUNNER_CMD_LINE_PREFIX = f"{PYTHON_BIN} -m {REACTIVE_RUNNER_SCRIPT_MODULE}"
 PID_CMD_COLUMN_WIDTH = len(REACTIVE_RUNNER_CMD_LINE_PREFIX)
 PIDS_COMMAND_LINE = [
     "ps",
@@ -112,7 +113,7 @@ def _spawn_runner(mq_uri: str, queue_name: str) -> None:
         queue_name: The name of the queue.
     """
     env = {
-        "PYTHONPATH": "src:lib:venv",
+        "PYTHONPATH": os.environ["PYTHONPATH"],
         MQ_URI_ENV_VAR: mq_uri,
         QUEUE_NAME_ENV_VAR: queue_name,
     }
@@ -121,7 +122,8 @@ def _spawn_runner(mq_uri: str, queue_name: str) -> None:
     command = " ".join(
         [
             PYTHON_BIN,
-            REACTIVE_RUNNER_SCRIPT_FILE,
+            "-m",
+            REACTIVE_RUNNER_SCRIPT_MODULE,
             ">>",
             # $$ will be replaced by the PID of the process, so we can track the error log easily.
             f"{REACTIVE_RUNNER_LOG_DIR}/$$.log",
