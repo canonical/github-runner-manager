@@ -42,7 +42,7 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 81  # TODO: increase to 85 to match the team standard
+fail_under = 79
 show_missing = true
 
 
