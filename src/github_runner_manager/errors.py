@@ -29,10 +29,6 @@ class MetricsStorageError(Exception):
     """Base class for all metrics storage errors."""
 
 
-class SharedFilesystemError(MetricsStorageError):
-    """Base class for all shared filesystem errors."""
-
-
 class CreateMetricsStorageError(MetricsStorageError):
     """Represents an error when the metrics storage could not be created."""
 
@@ -47,10 +43,6 @@ class GetMetricsStorageError(MetricsStorageError):
 
 class QuarantineMetricsStorageError(MetricsStorageError):
     """Represents an error when the metrics storage could not be quarantined."""
-
-
-class SharedFilesystemMountError(SharedFilesystemError):
-    """Represents an error related to the mounting of the shared filesystem."""
 
 
 class RunnerMetricsError(Exception):
