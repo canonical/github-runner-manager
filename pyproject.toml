@@ -19,6 +19,10 @@ dynamic = ["dependencies"]
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
 
+
+[tool.setuptools.package-data]
+"github_runner_manager.templates" = ["*.j2"]
+
 [project.urls]
 Homepage = "https://github.com/canonical/github-runner-manager"
 Issues = "https://github.com/canonical/github-runner-manager/issues"

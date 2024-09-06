@@ -419,7 +419,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             The cloud init userdata for openstack instance.
         """
-        jinja = jinja2.Environment(loader=jinja2.FileSystemLoader("templates"), autoescape=True)
+        jinja = jinja2.Environment(
+            loader=jinja2.PackageLoader("github_runner_manager", "templates"), autoescape=True
+        )
 
         env_contents = jinja.get_template("env.j2").render(
             pre_job_script=str(PRE_JOB_SCRIPT),
