@@ -5,6 +5,7 @@
 
 import functools
 import logging
+import os
 import subprocess  # nosec B404
 import time
 from typing import Any, Callable, Optional, Sequence, Type, TypeVar
@@ -142,3 +143,16 @@ def secure_run_subprocess(
     else:
         logger.debug("Command returns: %s", result.stdout)
     return result
+
+
+def set_env_var(env_var: str, value: str) -> None:
+    """Set the environment variable value.
+
+    Set the all upper case and all low case of the `env_var`.
+
+    Args:
+        env_var: Name of the environment variable.
+        value: Value to set environment variable to.
+    """
+    os.environ[env_var.upper()] = value
+    os.environ[env_var.lower()] = value

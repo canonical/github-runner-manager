@@ -42,7 +42,7 @@ from github_runner_manager.metrics import storage as metrics_storage
 from github_runner_manager.openstack_cloud.openstack_cloud import OpenstackCloud, OpenstackInstance
 from github_runner_manager.repo_policy_compliance_client import RepoPolicyComplianceClient
 from github_runner_manager.types_.github import GitHubOrg
-from github_runner_manager.utilities import retry
+from github_runner_manager.utilities import retry, set_env_var
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +148,15 @@ class OpenStackRunnerManager(CloudRunnerManager):
             cloud=self._cloud_config.cloud,
             prefix=self.name_prefix,
         )
+
+        # Setting the env var to this process and any child process spawned.
+        proxies = service_config.proxy_config
+        if no_proxy := proxies.no_proxy:
+            set_env_var("NO_PROXY", no_proxy)
+        if http_proxy := proxies.http:
+            set_env_var("HTTP_PROXY", http_proxy)
+        if https_proxy := proxies.https:
+            set_env_var("HTTPS_PROXY", https_proxy)
 
     @property
     def name_prefix(self) -> str:

@@ -8,7 +8,7 @@ Utilities used by the charm.
 
 ---
 
-<a href="../src/github_runner_manager/utilities.py#L24"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/utilities.py#L25"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `retry`
 
@@ -44,7 +44,7 @@ Parameterize the decorator for adding retry to functions.
 
 ---
 
-<a href="../src/github_runner_manager/utilities.py#L106"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/utilities.py#L107"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `secure_run_subprocess`
 
@@ -74,5 +74,27 @@ The command is executed with `subprocess.run`, additional arguments can be passe
 
 **Returns:**
  Object representing the completed process. The outputs subprocess can accessed. 
+
+
+---
+
+<a href="../src/github_runner_manager/utilities.py#L148"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+
+## <kbd>function</kbd> `set_env_var`
+
+```python
+set_env_var(env_var: str, value: str) → None
+```
+
+Set the environment variable value. 
+
+Set the all upper case and all low case of the `env_var`. 
+
+
+
+**Args:**
+ 
+ - <b>`env_var`</b>:  Name of the environment variable. 
+ - <b>`value`</b>:  Value to set environment variable to. 
 
 
