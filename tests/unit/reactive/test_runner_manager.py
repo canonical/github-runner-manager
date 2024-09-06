@@ -167,7 +167,7 @@ def _arrange_reactive_processes(secure_run_subprocess_mock: MagicMock, count: in
         count: The number of processes.
     """
     process_cmds_before = "\n".join(
-        [f"{PYTHON_BIN} {REACTIVE_RUNNER_SCRIPT_MODULE}\t{i}" for i in range(count)]
+        [f"{PYTHON_BIN} -m {REACTIVE_RUNNER_SCRIPT_MODULE}\t{i}" for i in range(count)]
     )
 
     secure_run_subprocess_mock.return_value = CompletedProcess(
