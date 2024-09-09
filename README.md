@@ -1,19 +1,7 @@
-<!--
-Avoid using this README file for information that is maintained or published elsewhere, e.g.:
+# Github Runner Manager
 
-* metadata.yaml > published on Charmhub
-* documentation > published on (or linked to from) Charmhub
-* detailed contribution guide > documentation or CONTRIBUTING.md
-
-Use links instead.
--->
-
-# is-charms-template
-
-Charmhub package name: operator-template
-More information: https://charmhub.io/is-charms-template
-
-Describe your charm in one or two sentences.
+This repository contains a python package with the code of a runner manager used 
+by [GitHub runner operator](https://github.com/canonical/github-runner-operator).
 
 ## Other resources
 

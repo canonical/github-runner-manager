@@ -9,6 +9,7 @@ header:
     - '**'
   paths-ignore:
     - '.github/**'
+    - '**/*.j2'
     - '**/*.json'
     - '**/*.md'
     - '**/*.txt'
@@ -20,4 +21,5 @@ header:
     - 'trivy.yaml'
     - 'pyproject.toml'
     - 'zap_rules.tsv'
+    - '.woke.yaml'
   comment: on-failure
