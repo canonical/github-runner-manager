@@ -2,5 +2,5 @@ fabric >=3,<4
 ghapi
 jinja2
 kombu==5.4.0
-openstacksdk>=3,<4
+openstacksdk>=4,<5
 pydantic < 2
