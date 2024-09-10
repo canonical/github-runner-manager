@@ -15,6 +15,7 @@ from github_runner_manager.manager.runner_manager import (
     RunnerManagerConfig,
 )
 from github_runner_manager.manager.runner_scaler import RunnerScaler
+from github_runner_manager.metrics.events import Reconciliation
 from github_runner_manager.types_.github import GitHubPath, GitHubRepo
 from tests.unit.mock_runner_managers import (
     MockCloudRunnerManager,
@@ -56,9 +57,18 @@ def mock_runner_managers_fixture(
     return (mock_cloud, mock_github)
 
 
+@pytest.fixture(scope="function", name="issue_events_mock")
+def issue_events_mock_fixture(monkeypatch: pytest.MonkeyPatch):
+    issue_events_mock = MagicMock()
+    monkeypatch.setattr(
+        "github_runner_manager.manager.runner_scaler.metric_events.issue_event", issue_events_mock
+    )
+    return issue_events_mock
+
+
 @pytest.fixture(scope="function", name="runner_manager")
 def runner_manager_fixture(
-    monkeypatch, mock_runner_managers, github_path: GitHubPath
+    monkeypatch, mock_runner_managers, github_path: GitHubPath, issue_events_mock
 ) -> RunnerManager:
     mock_cloud, mock_github = mock_runner_managers
     monkeypatch.setattr(
@@ -174,6 +184,24 @@ def test_reconcile_runner_create_one(runner_scaler: RunnerScaler):
     diff = runner_scaler.reconcile(quantity=0)
     assert diff == 0
     assert_runner_info(runner_scaler, online=0)
+
+
+def test_reconcile_error_still_issue_metrics(
+    runner_scaler: RunnerScaler, monkeypatch: pytest.MonkeyPatch, issue_events_mock: MagicMock
+):
+    """
+    Arrange: A RunnerScaler with no runners which raises an error on reconcile.
+    Act: Reconcile to one runner.
+    Assert: ReconciliationEvent should be issued.
+    """
+    monkeypatch.setattr(
+        runner_scaler._manager, "cleanup", MagicMock(side_effect=Exception("Mock error"))
+    )
+    with pytest.raises(Exception):
+        runner_scaler.reconcile(1)
+    issue_events_mock.assert_called_once()
+    issued_event = issue_events_mock.call_args[0][0]
+    assert isinstance(issued_event, Reconciliation)
 
 
 def test_one_runner(runner_scaler: RunnerScaler):
