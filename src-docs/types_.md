@@ -21,6 +21,28 @@ Represents the configuration for reactive scheduling.
  - <b>`mq_uri`</b>:  The URI of the MQ to use to spawn runners reactively. 
 
 
+---
+
+#### <kbd>property</kbd> model_extra
+
+Get extra fields set during validation. 
+
+
+
+**Returns:**
+  A dictionary of extra fields, or `None` if `config.extra` is not set to `"allow"`. 
+
+---
+
+#### <kbd>property</kbd> model_fields_set
+
+Returns the set of fields that have been explicitly set on this model instance. 
+
+
+
+**Returns:**
+  A set of strings representing the fields that have been set,  i.e. that were not filled from defaults. 
+
 
 
 
@@ -48,26 +70,41 @@ Proxy configuration.
 
 Return the aproxy address. 
 
+---
+
+#### <kbd>property</kbd> model_extra
+
+Get extra fields set during validation. 
+
+
+
+**Returns:**
+  A dictionary of extra fields, or `None` if `config.extra` is not set to `"allow"`. 
+
+---
+
+#### <kbd>property</kbd> model_fields_set
+
+Returns the set of fields that have been explicitly set on this model instance. 
+
+
+
+**Returns:**
+  A set of strings representing the fields that have been set,  i.e. that were not filled from defaults. 
+
 
 
 ---
 
 <a href="../src/github_runner_manager/types_/__init__.py#L54"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
-### <kbd>classmethod</kbd> `check_use_aproxy`
+### <kbd>method</kbd> `check_use_aproxy`
 
 ```python
-check_use_aproxy(use_aproxy: bool, values: dict) → bool
+check_use_aproxy(self: 'ProxyConfig') → ProxyConfig
 ```
 
 Validate the proxy configuration. 
-
-
-
-**Args:**
- 
- - <b>`use_aproxy`</b>:  Value of use_aproxy variable. 
- - <b>`values`</b>:  Values in the pydantic model. 
 
 
 
@@ -78,12 +115,12 @@ Validate the proxy configuration.
 
 
 **Returns:**
- Validated use_aproxy value. 
+ Validated ProxyConfig instance. 
 
 
 ---
 
-<a href="../src/github_runner_manager/types_/__init__.py#L83"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/__init__.py#L78"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `SSHDebugConnection`
 SSH connection information for debug workflow. 
@@ -98,12 +135,34 @@ SSH connection information for debug workflow.
  - <b>`ed25519_fingerprint`</b>:  The host SSH server public ed25519 key fingerprint. 
 
 
+---
+
+#### <kbd>property</kbd> model_extra
+
+Get extra fields set during validation. 
+
+
+
+**Returns:**
+  A dictionary of extra fields, or `None` if `config.extra` is not set to `"allow"`. 
+
+---
+
+#### <kbd>property</kbd> model_fields_set
+
+Returns the set of fields that have been explicitly set on this model instance. 
+
+
+
+**Returns:**
+  A set of strings representing the fields that have been set,  i.e. that were not filled from defaults. 
+
 
 
 
 ---
 
-<a href="../src/github_runner_manager/types_/__init__.py#L99"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/__init__.py#L94"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `RepoPolicyComplianceConfig`
 Configuration for the repo policy compliance service. 
@@ -115,6 +174,28 @@ Configuration for the repo policy compliance service.
  - <b>`token`</b>:  Token for the repo policy compliance service. 
  - <b>`url`</b>:  URL of the repo policy compliance service. 
 
+
+---
+
+#### <kbd>property</kbd> model_extra
+
+Get extra fields set during validation. 
+
+
+
+**Returns:**
+  A dictionary of extra fields, or `None` if `config.extra` is not set to `"allow"`. 
+
+---
+
+#### <kbd>property</kbd> model_fields_set
+
+Returns the set of fields that have been explicitly set on this model instance. 
+
+
+
+**Returns:**
+  A set of strings representing the fields that have been set,  i.e. that were not filled from defaults. 
 
 
 

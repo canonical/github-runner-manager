@@ -4,7 +4,7 @@
 """Package containing modules with type definitions."""
 from typing import Optional
 
-from pydantic import AnyHttpUrl, BaseModel, Field, IPvAnyAddress, MongoDsn, validator
+from pydantic import AnyHttpUrl, BaseModel, Field, IPvAnyAddress, MongoDsn, model_validator
 
 
 class ReactiveConfig(BaseModel):
@@ -28,9 +28,9 @@ class ProxyConfig(BaseModel):
         use_aproxy: Whether aproxy should be used for the runners.
     """
 
-    http: Optional[AnyHttpUrl]
-    https: Optional[AnyHttpUrl]
-    no_proxy: Optional[str]
+    http: Optional[AnyHttpUrl] = None
+    https: Optional[AnyHttpUrl] = None
+    no_proxy: Optional[str] = None
     use_aproxy: bool = False
 
     @property
@@ -51,25 +51,20 @@ class ProxyConfig(BaseModel):
             aproxy_address = None
         return aproxy_address
 
-    @validator("use_aproxy")
-    @classmethod
-    def check_use_aproxy(cls, use_aproxy: bool, values: dict) -> bool:
+    @model_validator(mode="after")
+    def check_use_aproxy(self: "ProxyConfig") -> "ProxyConfig":
         """Validate the proxy configuration.
-
-        Args:
-            use_aproxy: Value of use_aproxy variable.
-            values: Values in the pydantic model.
 
         Raises:
             ValueError: if use_aproxy was set but no http/https was passed.
 
         Returns:
-            Validated use_aproxy value.
+            Validated ProxyConfig instance.
         """
-        if use_aproxy and not (values.get("http") or values.get("https")):
+        if self.use_aproxy and not (self.http or self.https):
             raise ValueError("aproxy requires http or https to be set")
 
-        return use_aproxy
+        return self
 
     def __bool__(self) -> bool:
         """Return whether the proxy config is set.

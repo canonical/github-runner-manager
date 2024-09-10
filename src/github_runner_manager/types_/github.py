@@ -162,7 +162,7 @@ class JobStats(BaseModel):
     job_id: int
     created_at: datetime
     started_at: datetime
-    conclusion: Optional[JobConclusion]
+    conclusion: Optional[JobConclusion] = None
 
 
 @dataclasses.dataclass
