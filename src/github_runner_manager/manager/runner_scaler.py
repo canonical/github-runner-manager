@@ -217,7 +217,7 @@ class RunnerScaler:
             start_timestamp: The start timestamp of the reconciliation.
             end_timestamp: The end timestamp of the reconciliation.
             metric_stats: The metric stats.
-            runner_list: The list of runners
+            runner_list: The list of runners.
         """
         idle_runners = [
             runner for runner in runner_list if runner.github_state == GitHubRunnerState.IDLE
