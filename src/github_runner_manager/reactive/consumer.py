@@ -13,6 +13,9 @@ from typing import Generator, cast
 from kombu import Connection
 from kombu.simple import SimpleQueue
 from pydantic import BaseModel, HttpUrl, ValidationError
+from pydantic.networks import MongoDsn
+
+from github_runner_manager.manager.runner_manager import RunnerManager
 
 logger = logging.getLogger(__name__)
 
@@ -28,20 +31,31 @@ class JobDetails(BaseModel):
     labels: list[str]
     run_url: HttpUrl
 
+class QueueConfig(BaseModel):
+    """The configuration for the message queue.
+
+    Attributes:
+        mongodb_uri: The URI of the MongoDB database.
+        queue_name: The name of the queue.
+    """
+
+    mongodb_uri: MongoDsn
+    queue_name: str
+
 
 class JobError(Exception):
     """Raised when a job error occurs."""
 
 
-def consume(mongodb_uri: str, queue_name: str) -> None:
+def consume(queue_config: QueueConfig, runner_manager: RunnerManager) -> None:
     """Consume a job from the message queue.
 
     Log the job details and acknowledge the message.
     If the job details are invalid, reject the message and raise an error.
 
     Args:
-        mongodb_uri: The URI of the MongoDB database.
-        queue_name: The name of the queue.
+        queue_config: The configuration for the message queue.
+        runner_manager: The runner manager used to create the runner.
 
     Raises:
         JobError: If the job details are invalid.
