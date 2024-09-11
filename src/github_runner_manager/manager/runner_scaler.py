@@ -13,7 +13,12 @@ import github_runner_manager.reactive.runner_manager as reactive_runner_manager
 from github_runner_manager.errors import IssueMetricEventError, MissingServerConfigError
 from github_runner_manager.manager.cloud_runner_manager import HealthState
 from github_runner_manager.manager.github_runner_manager import GitHubRunnerState
-from github_runner_manager.manager.runner_manager import FlushMode, RunnerManager
+from github_runner_manager.manager.runner_manager import (
+    FlushMode,
+    IssuedMetricEventsStats,
+    RunnerInstance,
+    RunnerManager,
+)
 from github_runner_manager.metrics import events as metric_events
 from github_runner_manager.types_ import ReactiveConfig
 
@@ -123,34 +128,59 @@ class RunnerScaler:
             logger.info("Reactive configuration detected, going into experimental reactive mode.")
             return self._reconcile_reactive(quantity, self._reactive_config.mq_uri)
 
+        metric_stats = {}
         start_timestamp = time.time()
-        delete_metric_stats = None
-        metric_stats = self._manager.cleanup()
-        runners = self._manager.get_runners()
-        logger.info("Reconcile runners from %s to %s", len(runners), quantity)
-        runner_diff = quantity - len(runners)
-        if runner_diff > 0:
-            try:
-                self._manager.create_runners(runner_diff)
-            except MissingServerConfigError:
-                logging.exception(
-                    "Unable to spawn runner due to missing server configuration, such as, image."
-                )
-        elif runner_diff < 0:
-            delete_metric_stats = self._manager.delete_runners(-runner_diff)
-        else:
-            logger.info("No changes to the number of runners.")
-        end_timestamp = time.time()
 
-        # Merge the two metric stats.
-        if delete_metric_stats is not None:
-            metric_stats = {
-                event_name: delete_metric_stats.get(event_name, 0)
-                + metric_stats.get(event_name, 0)
-                for event_name in set(delete_metric_stats) | set(metric_stats)
-            }
+        try:
+            delete_metric_stats = None
+            metric_stats = self._manager.cleanup()
+            runners = self._manager.get_runners()
+            logger.info("Reconcile runners from %s to %s", len(runners), quantity)
+            runner_diff = quantity - len(runners)
+            if runner_diff > 0:
+                try:
+                    self._manager.create_runners(runner_diff)
+                except MissingServerConfigError:
+                    logging.exception(
+                        "Unable to spawn runner due to missing server configuration, "
+                        "such as, image."
+                    )
+            elif runner_diff < 0:
+                delete_metric_stats = self._manager.delete_runners(-runner_diff)
+            else:
+                logger.info("No changes to the number of runners.")
 
-        runner_list = self._manager.get_runners()
+            # Merge the two metric stats.
+            if delete_metric_stats is not None:
+                metric_stats = {
+                    event_name: delete_metric_stats.get(event_name, 0)
+                    + metric_stats.get(event_name, 0)
+                    for event_name in set(delete_metric_stats) | set(metric_stats)
+                }
+        finally:
+            runner_list = self._manager.get_runners()
+            self._log_runners(runner_list)
+            end_timestamp = time.time()
+            self._issue_reconciliation_metric(
+                start_timestamp, end_timestamp, metric_stats, runner_list
+            )
+
+        return runner_diff
+
+    @staticmethod
+    def _log_runners(runner_list: tuple[RunnerInstance]) -> None:
+        """Log information about the runners found.
+
+        Args:
+            runner_list: The list of runners.
+        """
+        for runner in runner_list:
+            logger.info(
+                "Runner %s: state=%s, health=%s",
+                runner.name,
+                runner.github_state,
+                runner.health,
+            )
         busy_runners = [
             runner for runner in runner_list if runner.github_state == GitHubRunnerState.BUSY
         ]
@@ -163,7 +193,7 @@ class RunnerScaler:
             if runner.github_state == GitHubRunnerState.OFFLINE
             and runner.health == HealthState.HEALTHY
         ]
-        unhealthy_states = set((HealthState.UNHEALTHY, HealthState.UNKNOWN))
+        unhealthy_states = {HealthState.UNHEALTHY, HealthState.UNKNOWN}
         unhealthy_runners = [runner for runner in runner_list if runner.health in unhealthy_states]
         logger.info("Found %s busy runners: %s", len(busy_runners), busy_runners)
         logger.info("Found %s idle runners: %s", len(idle_runners), idle_runners)
@@ -173,6 +203,31 @@ class RunnerScaler:
             offline_healthy_runners,
         )
         logger.info("Found %s unhealthy runners: %s", len(unhealthy_runners), unhealthy_runners)
+
+    def _issue_reconciliation_metric(
+        self,
+        start_timestamp: float,
+        end_timestamp: float,
+        metric_stats: IssuedMetricEventsStats,
+        runner_list: tuple[RunnerInstance],
+    ) -> None:
+        """Issue the reconciliation metric.
+
+        Args:
+            start_timestamp: The start timestamp of the reconciliation.
+            end_timestamp: The end timestamp of the reconciliation.
+            metric_stats: The metric stats.
+            runner_list: The list of runners.
+        """
+        idle_runners = [
+            runner for runner in runner_list if runner.github_state == GitHubRunnerState.IDLE
+        ]
+        offline_healthy_runners = [
+            runner
+            for runner in runner_list
+            if runner.github_state == GitHubRunnerState.OFFLINE
+            and runner.health == HealthState.HEALTHY
+        ]
 
         try:
             available_runners = set(runner.name for runner in idle_runners) | set(
@@ -193,8 +248,6 @@ class RunnerScaler:
             )
         except IssueMetricEventError:
             logger.exception("Failed to issue Reconciliation metric")
-
-        return runner_diff
 
     def _reconcile_reactive(self, quantity: int, mq_uri: MongoDsn) -> int:
         """Reconcile runners reactively.

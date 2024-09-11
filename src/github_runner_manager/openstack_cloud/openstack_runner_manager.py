@@ -399,13 +399,19 @@ class OpenStackRunnerManager(CloudRunnerManager):
             True if runner is healthy.
         """
         cloud_state = CloudRunnerState.from_openstack_server_status(instance.status)
-        return cloud_state not in set(
+        is_expected_cloud_state = cloud_state not in set(
             (
                 CloudRunnerState.DELETED,
                 CloudRunnerState.ERROR,
                 CloudRunnerState.STOPPED,
             )
-        ) and self._health_check(instance)
+        )
+        try:
+            is_healthy_runner = self._health_check(instance)
+            return is_expected_cloud_state and is_healthy_runner
+        except SSHError:
+            logger.exception("SSH Failed on %s, marking as unhealthy.")
+            return False
 
     def _generate_cloud_init(self, instance_name: str, registration_token: str) -> str:
         """Generate cloud init userdata.
