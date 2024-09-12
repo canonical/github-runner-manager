@@ -43,18 +43,20 @@ class OpenstackInstance:
     """Represents an OpenStack instance.
 
     Attributes:
-        server_id: ID of server assigned by OpenStack.
-        server_name: Name of the server on OpenStack.
+        addresses: IP addresses assigned to the server.
+        created_at: The timestamp in which the instance was created at.
         instance_id: ID used by OpenstackCloud class to manage the instances. See docs on the
             OpenstackCloud.
-        addresses: IP addresses assigned to the server.
+        server_id: ID of server assigned by OpenStack.
+        server_name: Name of the server on OpenStack.
         status: Status of the server.
     """
 
+    addresses: list[str]
+    created_at: datetime
+    instance_id: str
     server_id: str
     server_name: str
-    instance_id: str
-    addresses: list[str]
     status: str
 
     def __init__(self, server: OpenstackServer, prefix: str):
@@ -67,21 +69,21 @@ class OpenstackInstance:
         Raises:
             ValueError: Provided server should not be managed under this prefix.
         """
-        self.server_id = server.id
-        self.server_name = server.name
-        self.status = server.status
+        if not server.name.startswith(f"{prefix}-"):
+            # Should never happen.
+            raise ValueError(
+                f"Found openstack server {server.name} managed under prefix {prefix}, contact devs"
+            )
         self.addresses = [
             address["addr"]
             for network_addresses in server.addresses.values()
             for address in network_addresses
         ]
-
-        if not self.server_name.startswith(f"{prefix}-"):
-            # Should never happen.
-            raise ValueError(
-                f"Found openstack server {server.name} managed under prefix {prefix}, contact devs"
-            )
-        self.instance_id = self.server_name[len(prefix) + 1 :]
+        self.created_at = datetime.strptime(server.created_at, "%Y-%m-%dT%H:%M:%SZ")
+        self.instance_id = server.name[len(prefix) + 1 :]
+        self.server_id = server.id
+        self.server_name = server.name
+        self.status = server.status
 
 
 @contextmanager
