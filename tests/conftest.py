@@ -10,4 +10,9 @@ def pytest_addoption(parser):
     Args:
         parser: Pytest parser.
     """
-    parser.addoption("--charm-file", action="store")
+    parser.addoption(
+        "--path",
+        action="store",
+        help="The GitHub path to register the runners on, i.e. <org> or <org>/<repo>",
+    )
+    parser.addoption("--token", action="store", help="The GitHub token to register the runners.")
