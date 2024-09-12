@@ -60,12 +60,13 @@ def consume(queue_config: QueueConfig, runner_manager: RunnerManager) -> None:
     Raises:
         JobError: If the job details are invalid.
     """
-    with Connection(mongodb_uri) as conn:
-        with closing(SimpleQueue(conn, queue_name)) as simple_queue:
+    with Connection(queue_config.mongodb_uri) as conn:
+        with closing(SimpleQueue(conn, queue_config.queue_name)) as simple_queue:
             with signal_handler(signal.SIGTERM):
                 msg = simple_queue.get(block=True)
                 try:
                     job_details = cast(JobDetails, JobDetails.parse_raw(msg.payload))
+                    runner_manager.create_runners(1)
                 except ValidationError as exc:
                     msg.reject(requeue=True)
                     raise JobError(f"Invalid job details: {msg.payload}") from exc
@@ -75,6 +76,9 @@ def consume(queue_config: QueueConfig, runner_manager: RunnerManager) -> None:
                     job_details.run_url,
                 )
                 msg.ack()
+
+def _check_job(run_url: HttpUrl) -> None:
+
 
 
 @contextlib.contextmanager
