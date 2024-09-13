@@ -16,6 +16,7 @@ from github_runner_manager.reactive.runner_manager import (
     ReactiveRunnerError,
     reconcile,
 )
+from github_runner_manager.reactive.types_ import RunnerConfig, QueueConfig
 from github_runner_manager.utilities import secure_run_subprocess
 
 EXAMPLE_MQ_URI = "http://example.com"
@@ -63,8 +64,18 @@ def subprocess_popen_mock_fixture(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     return subprocess_popen_mock
 
 
+@pytest.fixture(name="runner_config")
+def runner_config_fixture() -> RunnerConfig:
+    """Return a RunnerConfig object."""
+    queue_name = secrets.token_hex(16)
+
+    # we use construct to avoid pydantic validation as IN_MEMORY_URI is not a valid URL
+    queue_config = QueueConfig.construct(mongodb_uri=EXAMPLE_MQ_URI, queue_name=queue_name)
+    return RunnerConfig.construct(queue=queue_config)
+
 def test_reconcile_spawns_runners(
-    secure_run_subprocess_mock: MagicMock, subprocess_popen_mock: MagicMock, log_dir: Path
+    secure_run_subprocess_mock: MagicMock, subprocess_popen_mock: MagicMock, log_dir: Path,
+        runner_config: RunnerConfig
 ):
     """
     arrange: Mock that two reactive runner processes are active.
@@ -74,7 +85,7 @@ def test_reconcile_spawns_runners(
     queue_name = secrets.token_hex(16)
     _arrange_reactive_processes(secure_run_subprocess_mock, count=2)
 
-    delta = reconcile(5, mq_uri=EXAMPLE_MQ_URI, queue_name=queue_name)
+    delta = reconcile(5, reactive_config=runner_config)
 
     assert delta == 3
     assert subprocess_popen_mock.call_count == 3
@@ -82,17 +93,17 @@ def test_reconcile_spawns_runners(
 
 
 def test_reconcile_does_not_spawn_runners(
-    secure_run_subprocess_mock: MagicMock, subprocess_popen_mock: MagicMock
+    secure_run_subprocess_mock: MagicMock, subprocess_popen_mock: MagicMock,
+        runner_config: RunnerConfig
 ):
     """
     arrange: Mock that two reactive runner processes are active.
     act: Call reconcile with a quantity of 2.
     assert: No runners are spawned.
     """
-    queue_name = secrets.token_hex(16)
     _arrange_reactive_processes(secure_run_subprocess_mock, count=2)
 
-    delta = reconcile(2, mq_uri=EXAMPLE_MQ_URI, queue_name=queue_name)
+    delta = reconcile(2, reactive_config=runner_config)
 
     assert delta == 0
     assert subprocess_popen_mock.call_count == 0
@@ -102,15 +113,15 @@ def test_reconcile_kills_processes_for_too_many_processes(
     secure_run_subprocess_mock: MagicMock,
     subprocess_popen_mock: MagicMock,
     os_kill_mock: MagicMock,
+        runner_config: RunnerConfig
 ):
     """
     arrange: Mock that 3 reactive runner processes are active.
     act: Call reconcile with a quantity of 1.
     assert: 2 processes are killed.
     """
-    queue_name = secrets.token_hex(16)
     _arrange_reactive_processes(secure_run_subprocess_mock, count=3)
-    delta = reconcile(1, mq_uri=EXAMPLE_MQ_URI, queue_name=queue_name)
+    delta = reconcile(1, reactive_config=runner_config)
 
     assert delta == -2
     assert subprocess_popen_mock.call_count == 0
@@ -121,16 +132,16 @@ def test_reconcile_ignore_process_not_found_on_kill(
     secure_run_subprocess_mock: MagicMock,
     subprocess_popen_mock: MagicMock,
     os_kill_mock: MagicMock,
+        runner_config: RunnerConfig
 ):
     """
     arrange: Mock 3 reactive processes and os.kill to fail once with a ProcessLookupError.
     act: Call reconcile with a quantity of 1.
     assert: The returned delta is still -2.
     """
-    queue_name = secrets.token_hex(16)
     _arrange_reactive_processes(secure_run_subprocess_mock, count=3)
     os_kill_mock.side_effect = [None, ProcessLookupError]
-    delta = reconcile(1, mq_uri=EXAMPLE_MQ_URI, queue_name=queue_name)
+    delta = reconcile(1, reactive_config=runner_config)
 
     assert delta == -2
     assert subprocess_popen_mock.call_count == 0
@@ -138,7 +149,7 @@ def test_reconcile_ignore_process_not_found_on_kill(
 
 
 def test_reconcile_raises_reactive_runner_error_on_ps_failure(
-    secure_run_subprocess_mock: MagicMock,
+    secure_run_subprocess_mock: MagicMock, runner_config: RunnerConfig
 ):
     """
     arrange: Mock that the ps command fails.
@@ -154,7 +165,7 @@ def test_reconcile_raises_reactive_runner_error_on_ps_failure(
     )
 
     with pytest.raises(ReactiveRunnerError) as err:
-        reconcile(1, mq_uri=EXAMPLE_MQ_URI, queue_name=queue_name)
+        reconcile(1, reactive_config=runner_config)
 
     assert "Failed to get list of processes" in str(err.value)
 

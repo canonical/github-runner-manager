@@ -36,7 +36,7 @@ RUNNER_CONFIG_ENV_VAR = "RUNNER_CONFIG"
 class ReactiveRunnerError(Exception):
     """Raised when a reactive runner error occurs."""
 
-
+# TODO: rename reactive_config argument to runner_config
 def reconcile(quantity: int, reactive_config: RunnerConfig) -> int:
     """Spawn a runner reactively.
 

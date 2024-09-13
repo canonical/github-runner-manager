@@ -3,32 +3,41 @@
 
 import secrets
 from contextlib import closing
+from unittest.mock import MagicMock
 
 import pytest
 from kombu import Connection, Message
 
 from github_runner_manager.reactive import consumer
 from github_runner_manager.reactive.consumer import JobError
+from github_runner_manager.reactive.types_ import QueueConfig
 
 IN_MEMORY_URI = "memory://"
 FAKE_RUN_URL = "https://api.github.com/repos/fakeusergh-runner-test/actions/runs/8200803099"
 
 
-def test_consume(caplog: pytest.LogCaptureFixture):
+@pytest.fixture(name="queue_config")
+def queue_config_fixture() -> QueueConfig:
+    """Return a QueueConfig object."""
+    queue_name = secrets.token_hex(16)
+
+    # we use construct to avoid pydantic validation as IN_MEMORY_URI is not a valid URL
+    return QueueConfig.construct(mongodb_uri=IN_MEMORY_URI, queue_name=queue_name)
+
+def test_consume(caplog: pytest.LogCaptureFixture, queue_config: QueueConfig):
     """
     arrange: A job placed in the message queue.
     act: Call consume
     assert: The job is logged.
     """
-    queue_name = secrets.token_hex(16)
     job_details = consumer.JobDetails(
         labels=[secrets.token_hex(16), secrets.token_hex(16)],
         run_url=FAKE_RUN_URL,
     )
-    _put_in_queue(job_details.json(), queue_name)
+    _put_in_queue(job_details.json(), queue_config.queue_name)
 
-    # we use construct to avoid pydantic validation as IN_MEMORY_URI is not a valid URL
-    consumer.consume(IN_MEMORY_URI, queue_name)
+
+    consumer.consume(queue_config=queue_config, runner_manager=MagicMock())
     assert str(job_details.labels) in caplog.text
     assert job_details.run_url in caplog.text
 
@@ -45,17 +54,17 @@ def test_consume(caplog: pytest.LogCaptureFixture):
         pytest.param("no json at all", id="invalid json"),
     ],
 )
-def test_job_details_validation_error(job_str: str):
+def test_job_details_validation_error(job_str: str, queue_config: QueueConfig):
     """
     arrange: A job placed in the message queue with invalid details.
     act: Call consume
     assert: A JobError is raised and the message is requeued.
     """
-    queue_name = secrets.token_hex(16)
+    queue_name = queue_config.queue_name
     _put_in_queue(job_str, queue_name)
 
     with pytest.raises(JobError) as exc_info:
-        consumer.consume(IN_MEMORY_URI, queue_name)
+        consumer.consume(queue_config=queue_config, runner_manager=MagicMock())
     assert "Invalid job details" in str(exc_info.value)
 
     # Ensure message has been requeued by reconsuming it

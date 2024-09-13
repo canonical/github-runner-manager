@@ -16,7 +16,7 @@ from tests.unit.factories import openstack_factory
 @pytest.fixture(scope="function", name="mock_openstack_runner_manager")
 def mock_openstack_runner_manager_fixture():
     """The mocked OpenStackRunnerManager instance."""
-    return openstack_runner_manager.OpenStackRunnerManager(
+    config = openstack_runner_manager.OpenStackRunnerManagerConfig(
         manager_name="mock-manager",
         prefix="mock-manager",
         cloud_config=openstack_runner_manager.OpenStackCloudConfig(
@@ -47,8 +47,9 @@ def mock_openstack_runner_manager_fixture():
             dockerhub_mirror=None,
             ssh_debug_connections=None,
             repo_policy_compliance=None,
-        ),
+        )
     )
+    return openstack_runner_manager.OpenStackRunnerManager(config=config)
 
 
 @pytest.mark.parametrize(
