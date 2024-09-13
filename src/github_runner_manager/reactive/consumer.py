@@ -77,8 +77,6 @@ def consume(queue_config: QueueConfig, runner_manager: RunnerManager) -> None:
                 )
                 msg.ack()
 
-def _check_job(run_url: HttpUrl) -> None:
-
 
 
 @contextlib.contextmanager

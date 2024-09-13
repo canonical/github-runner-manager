@@ -11,6 +11,7 @@ import signal
 import subprocess  # nosec
 from pathlib import Path
 
+from github_runner_manager.types_ import ReactiveRunnerConfig
 from github_runner_manager.utilities import secure_run_subprocess
 
 logger = logging.getLogger(__name__)
@@ -37,19 +38,19 @@ class ReactiveRunnerError(Exception):
     """Raised when a reactive runner error occurs."""
 
 
-def reconcile(quantity: int, mq_uri: str, queue_name: str) -> int:
+def reconcile(quantity: int, reactive_config: ReactiveRunnerConfig) -> int:
     """Spawn a runner reactively.
 
     Args:
         quantity: The number of runners to spawn.
-        mq_uri: The message queue URI.
-        queue_name: The name of the queue.
+        reactive_config: The reactive runner configuration.
 
     Raises a ReactiveRunnerError if the runner fails to spawn.
 
     Returns:
         The number of reactive runner processes spawned.
     """
+    queue_config = reactive_config.queue
     pids = _get_pids()
     current_quantity = len(pids)
     logger.info("Current quantity of reactive runner processes: %s", current_quantity)
@@ -58,7 +59,7 @@ def reconcile(quantity: int, mq_uri: str, queue_name: str) -> int:
         logger.info("Will spawn %d new reactive runner process(es)", delta)
         _setup_logging_for_processes()
         for _ in range(delta):
-            _spawn_runner(mq_uri=mq_uri, queue_name=queue_name)
+            _spawn_runner(mq_uri=queue_config.mongodb_uri, queue_name=queue_config.queue_name)
     elif delta < 0:
         logger.info("Will kill %d process(es).", -delta)
         for pid in pids[:-delta]:

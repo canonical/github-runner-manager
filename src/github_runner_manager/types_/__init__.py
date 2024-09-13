@@ -6,6 +6,12 @@ from typing import Optional
 
 from pydantic import AnyHttpUrl, BaseModel, Field, IPvAnyAddress, MongoDsn, validator
 
+from github_runner_manager.manager.cloud_runner_manager import GitHubRunnerConfig
+from github_runner_manager.manager.runner_manager import RunnerManagerConfig
+from github_runner_manager.openstack_cloud.openstack_runner_manager import OpenStackCloudConfig, \
+    OpenStackServerConfig
+from github_runner_manager.reactive.consumer import QueueConfig
+
 
 class ReactiveConfig(BaseModel):
     """Represents the configuration for reactive scheduling.
@@ -106,3 +112,21 @@ class RepoPolicyComplianceConfig(BaseModel):
 
     token: str
     url: AnyHttpUrl
+
+
+class ReactiveRunnerConfig(BaseModel):
+    """The configuration for the reactive runner to spawn.
+
+    Attributes:
+        queue: The queue configuration.
+        runner_manager: The runner manager configuration.
+        runner: The GitHub runner configuration.
+        openstack_cloud: The OpenStack cloud configuration.
+        openstack_server: The OpenStack server configuration.
+    """
+
+    queue: QueueConfig
+    runner_manager: RunnerManagerConfig
+    runner: GitHubRunnerConfig
+    openstack_cloud: OpenStackCloudConfig
+    openstack_server: OpenStackServerConfig | None = None

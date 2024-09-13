@@ -20,7 +20,7 @@ from github_runner_manager.manager.runner_manager import (
     RunnerManager,
 )
 from github_runner_manager.metrics import events as metric_events
-from github_runner_manager.types_ import ReactiveConfig
+from github_runner_manager.types_ import ReactiveRunnerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class RunnerInfo:
 class RunnerScaler:
     """Manage the reconcile of runners."""
 
-    def __init__(self, runner_manager: RunnerManager, reactive_config: ReactiveConfig | None):
+    def __init__(self, runner_manager: RunnerManager, reactive_config: ReactiveRunnerConfig | None):
         """Construct the object.
 
         Args:
@@ -126,7 +126,7 @@ class RunnerScaler:
 
         if self._reactive_config is not None:
             logger.info("Reactive configuration detected, going into experimental reactive mode.")
-            return self._reconcile_reactive(quantity, self._reactive_config.mq_uri)
+            return self._reconcile_reactive(quantity)
 
         metric_stats = {}
         start_timestamp = time.time()
@@ -249,7 +249,7 @@ class RunnerScaler:
         except IssueMetricEventError:
             logger.exception("Failed to issue Reconciliation metric")
 
-    def _reconcile_reactive(self, quantity: int, mq_uri: MongoDsn) -> int:
+    def _reconcile_reactive(self, quantity: int) -> int:
         """Reconcile runners reactively.
 
         Args:
@@ -263,6 +263,5 @@ class RunnerScaler:
         logger.info("Reactive mode is experimental and not yet fully implemented.")
         return reactive_runner_manager.reconcile(
             quantity=quantity,
-            mq_uri=mq_uri,
-            queue_name=self._manager.manager_name,
+            reactive_config=self._reactive_config,
         )
