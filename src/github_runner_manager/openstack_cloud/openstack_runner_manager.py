@@ -7,6 +7,7 @@ import logging
 import secrets
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Iterator, Sequence
 
@@ -28,6 +29,7 @@ from github_runner_manager.errors import (
     SSHError,
 )
 from github_runner_manager.manager.cloud_runner_manager import (
+    CloudInitStatus,
     CloudRunnerInstance,
     CloudRunnerManager,
     CloudRunnerState,
@@ -151,11 +153,11 @@ class OpenStackRunnerManager(CloudRunnerManager):
 
         # Setting the env var to this process and any child process spawned.
         proxies = service_config.proxy_config
-        if no_proxy := proxies.no_proxy:
+        if proxies and (no_proxy := proxies.no_proxy):
             set_env_var("NO_PROXY", no_proxy)
-        if http_proxy := proxies.http:
+        if proxies and (http_proxy := proxies.http):
             set_env_var("HTTP_PROXY", http_proxy)
-        if https_proxy := proxies.https:
+        if proxies and (https_proxy := proxies.https):
             set_env_var("HTTPS_PROXY", https_proxy)
 
     @property
@@ -399,13 +401,35 @@ class OpenStackRunnerManager(CloudRunnerManager):
             True if runner is healthy.
         """
         cloud_state = CloudRunnerState.from_openstack_server_status(instance.status)
-        return cloud_state not in set(
-            (
-                CloudRunnerState.DELETED,
-                CloudRunnerState.ERROR,
-                CloudRunnerState.STOPPED,
+        if cloud_state in (
+            CloudRunnerState.DELETED,
+            CloudRunnerState.STOPPED,
+        ):
+            return False
+
+        if cloud_state in (CloudRunnerState.ERROR, CloudRunnerState.UNKNOWN):
+            logger.error(
+                "Instance in unexpected status, failing health check. %s: %s (%s)",
+                cloud_state,
+                instance.server_name,
+                instance.server_id,
             )
-        ) and self._health_check(instance)
+            return False
+        if cloud_state in (CloudRunnerState.CREATED,):
+            if datetime.now() - instance.created_at >= timedelta(hours=1):
+                logger.error(
+                    "Instance in created status for too long, failing health check. %s: %s (%s)",
+                    cloud_state,
+                    instance.server_name,
+                    instance.server_id,
+                )
+                return False
+            return True
+        try:
+            return self._health_check(instance)
+        except SSHError:
+            logger.exception("SSH Failed on %s, marking as unhealthy.")
+            return False
 
     def _generate_cloud_init(self, instance_name: str, registration_token: str) -> str:
         """Generate cloud init userdata.
@@ -576,7 +600,13 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             Whether the health succeed.
         """
-        result: invoke.runners.Result = ssh_conn.run("ps aux", warn=True)
+        result: invoke.runners.Result = ssh_conn.run("cloud-init status", warn=True)
+        if not result.ok:
+            logger.warning("cloud-init status command failed on %s: %s.", name, result.stderr)
+            return False
+        if CloudInitStatus.DONE in result.stdout:
+            return False
+        result = ssh_conn.run("ps aux", warn=True)
         if not result.ok:
             logger.warning("SSH run of `ps aux` failed on %s: %s", name, result.stderr)
             return False
