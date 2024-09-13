@@ -7,7 +7,6 @@ import logging
 import time
 from dataclasses import dataclass
 
-from pydantic import MongoDsn
 
 import github_runner_manager.reactive.runner_manager as reactive_runner_manager
 from github_runner_manager.errors import IssueMetricEventError, MissingServerConfigError
@@ -20,7 +19,7 @@ from github_runner_manager.manager.runner_manager import (
     RunnerManager,
 )
 from github_runner_manager.metrics import events as metric_events
-from github_runner_manager.types_ import ReactiveRunnerConfig
+from github_runner_manager.reactive.types_ import RunnerConfig as ReactiveRunnerConfig
 
 logger = logging.getLogger(__name__)
 

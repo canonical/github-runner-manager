@@ -18,12 +18,12 @@ Module for managing reactive runners.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/runner_manager.py#L40"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/runner_manager.py#L41"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `reconcile`
 
 ```python
-reconcile(quantity: int, mq_uri: str, queue_name: str) → int
+reconcile(quantity: int, reactive_config: RunnerConfig) → int
 ```
 
 Spawn a runner reactively. 
@@ -33,8 +33,7 @@ Spawn a runner reactively.
 **Args:**
  
  - <b>`quantity`</b>:  The number of runners to spawn. 
- - <b>`mq_uri`</b>:  The message queue URI. 
- - <b>`queue_name`</b>:  The name of the queue. 
+ - <b>`reactive_config`</b>:  The reactive runner configuration. 
 
 Raises a ReactiveRunnerError if the runner fails to spawn. 
 
@@ -46,7 +45,7 @@ Raises a ReactiveRunnerError if the runner fails to spawn.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/runner_manager.py#L36"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/runner_manager.py#L37"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `ReactiveRunnerError`
 Raised when a reactive runner error occurs. 

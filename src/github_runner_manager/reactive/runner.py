@@ -7,7 +7,7 @@ import logging
 import os
 import sys
 
-from github_runner_manager.reactive.consumer import consume, QueueConfig
+from github_runner_manager.reactive.consumer import consume
 from github_runner_manager.reactive.runner_manager import MQ_URI_ENV_VAR, QUEUE_NAME_ENV_VAR
 
 

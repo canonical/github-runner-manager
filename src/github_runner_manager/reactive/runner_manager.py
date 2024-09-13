@@ -11,7 +11,7 @@ import signal
 import subprocess  # nosec
 from pathlib import Path
 
-from github_runner_manager.types_ import ReactiveRunnerConfig
+from github_runner_manager.reactive.types_ import RunnerConfig
 from github_runner_manager.utilities import secure_run_subprocess
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class ReactiveRunnerError(Exception):
     """Raised when a reactive runner error occurs."""
 
 
-def reconcile(quantity: int, reactive_config: ReactiveRunnerConfig) -> int:
+def reconcile(quantity: int, reactive_config: RunnerConfig) -> int:
     """Spawn a runner reactively.
 
     Args:

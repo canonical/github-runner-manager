@@ -13,9 +13,9 @@ from typing import Generator, cast
 from kombu import Connection
 from kombu.simple import SimpleQueue
 from pydantic import BaseModel, HttpUrl, ValidationError
-from pydantic.networks import MongoDsn
 
 from github_runner_manager.manager.runner_manager import RunnerManager
+from github_runner_manager.reactive.types_ import QueueConfig
 
 logger = logging.getLogger(__name__)
 
@@ -30,17 +30,6 @@ class JobDetails(BaseModel):
 
     labels: list[str]
     run_url: HttpUrl
-
-class QueueConfig(BaseModel):
-    """The configuration for the message queue.
-
-    Attributes:
-        mongodb_uri: The URI of the MongoDB database.
-        queue_name: The name of the queue.
-    """
-
-    mongodb_uri: MongoDsn
-    queue_name: str
 
 
 class JobError(Exception):
