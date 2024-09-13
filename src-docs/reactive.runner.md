@@ -7,12 +7,11 @@ Script to spawn a reactive runner process.
 
 **Global Variables**
 ---------------
-- **MQ_URI_ENV_VAR**
-- **QUEUE_NAME_ENV_VAR**
+- **RUNNER_CONFIG_ENV_VAR**
 
 ---
 
-<a href="../src/github_runner_manager/reactive/runner.py#L14"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/runner.py#L17"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `setup_root_logging`
 
@@ -25,7 +24,7 @@ Set up logging for the reactive runner process.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/runner.py#L24"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/runner.py#L27"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `main`
 

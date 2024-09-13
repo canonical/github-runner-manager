@@ -55,7 +55,7 @@ def consume(queue_config: QueueConfig, runner_manager: RunnerManager) -> None:
                 msg = simple_queue.get(block=True)
                 try:
                     job_details = cast(JobDetails, JobDetails.parse_raw(msg.payload))
-                    runner_manager.create_runners(1)
+                    #runner_manager.create_runners(1)
                 except ValidationError as exc:
                     msg.reject(requeue=True)
                     raise JobError(f"Invalid job details: {msg.payload}") from exc
@@ -65,7 +65,6 @@ def consume(queue_config: QueueConfig, runner_manager: RunnerManager) -> None:
                     job_details.run_url,
                 )
                 msg.ack()
-
 
 
 @contextlib.contextmanager

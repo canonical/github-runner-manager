@@ -4,7 +4,7 @@
 """Package containing modules with type definitions."""
 from typing import Optional
 
-from pydantic import AnyHttpUrl, BaseModel, Field, IPvAnyAddress, MongoDsn, validator
+from pydantic import AnyHttpUrl, BaseModel, Field, IPvAnyAddress, validator
 
 
 class ProxyConfig(BaseModel):

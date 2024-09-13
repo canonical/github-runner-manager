@@ -99,6 +99,27 @@ class OpenStackServerConfig:
 
 
 @dataclass
+class OpenStackRunnerManagerConfig:
+    """Configuration for OpenStack runner manager.
+
+    Attributes:
+        manager_name: The name of the manager.
+        prefix: The prefix of the runner names.
+        cloud_config: The configuration for OpenStack cloud.
+        server_config: The configuration for OpenStack server.
+        runner_config: The configuration for the GitHub runner.
+        service_config: The configuration for supporting services.
+    """
+
+    manager_name: str
+    prefix: str
+    cloud_config: OpenStackCloudConfig
+    server_config: OpenStackServerConfig | None
+    runner_config: GitHubRunnerConfig
+    service_config: SupportServiceConfig
+
+
+@dataclass
 class _RunnerHealth:
     """Runners with health state.
 
@@ -118,33 +139,21 @@ class OpenStackRunnerManager(CloudRunnerManager):
         name_prefix: The name prefix of the runners created.
     """
 
-    # Ignore "Too many arguments", as the class requires a lot of configurations.
     def __init__(  # pylint: disable=R0913
         self,
-        manager_name: str,
-        prefix: str,
-        cloud_config: OpenStackCloudConfig,
-        server_config: OpenStackServerConfig | None,
-        runner_config: GitHubRunnerConfig,
-        service_config: SupportServiceConfig,
+        config: OpenStackRunnerManagerConfig,
     ) -> None:
         """Construct the object.
 
         Args:
-            manager_name: A name to identify this manager.
-            prefix: The prefix to runner name.
-            cloud_config: The configuration for OpenStack authorisation.
-            server_config: The configuration for creating OpenStack server. Unable to create
-                runner if None.
-            runner_config: The configuration for the runner.
-            service_config: The configuration of supporting services of the runners.
+            config: The configuration for the openstack runner manager.
         """
-        self._manager_name = manager_name
-        self._prefix = prefix
-        self._cloud_config = cloud_config
-        self._server_config = server_config
-        self._runner_config = runner_config
-        self._service_config = service_config
+        self._manager_name = config.manager_name
+        self._prefix = config.prefix
+        self._cloud_config = config.cloud_config
+        self._server_config = config.server_config
+        self._runner_config = config.runner_config
+        self._service_config = config.service_config
         self._openstack_cloud = OpenstackCloud(
             clouds_config=self._cloud_config.clouds_config,
             cloud=self._cloud_config.cloud,
@@ -152,7 +161,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         )
 
         # Setting the env var to this process and any child process spawned.
-        proxies = service_config.proxy_config
+        proxies = self._service_config.proxy_config
         if proxies and (no_proxy := proxies.no_proxy):
             set_env_var("NO_PROXY", no_proxy)
         if proxies and (http_proxy := proxies.http):

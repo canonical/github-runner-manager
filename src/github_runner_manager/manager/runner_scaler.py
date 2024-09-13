@@ -7,7 +7,6 @@ import logging
 import time
 from dataclasses import dataclass
 
-
 import github_runner_manager.reactive.runner_manager as reactive_runner_manager
 from github_runner_manager.errors import IssueMetricEventError, MissingServerConfigError
 from github_runner_manager.manager.cloud_runner_manager import HealthState
@@ -48,15 +47,17 @@ class RunnerInfo:
 class RunnerScaler:
     """Manage the reconcile of runners."""
 
-    def __init__(self, runner_manager: RunnerManager, reactive_config: ReactiveRunnerConfig | None):
+    def __init__(
+        self, runner_manager: RunnerManager, reactive_runner_config: ReactiveRunnerConfig | None
+    ):
         """Construct the object.
 
         Args:
             runner_manager: The RunnerManager to perform runner reconcile.
-            reactive_config: Reactive runner configuration.
+            reactive_runner_config: Reactive runner configuration.
         """
         self._manager = runner_manager
-        self._reactive_config = reactive_config
+        self._reactive_config = reactive_runner_config
 
     def get_runner_info(self) -> RunnerInfo:
         """Get information on the runners.
@@ -253,7 +254,6 @@ class RunnerScaler:
 
         Args:
             quantity: Number of intended runners.
-            mq_uri: The URI of the MQ to use to spawn runners reactively.
 
         Returns:
             The difference between intended runners and actual runners. In reactive mode
