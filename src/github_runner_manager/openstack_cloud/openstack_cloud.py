@@ -14,7 +14,6 @@ from typing import Iterable, Iterator, cast
 import openstack
 import openstack.exceptions
 import paramiko
-import yaml
 from fabric import Connection as SSHConnection
 from openstack.compute.v2.keypair import Keypair as OpenstackKeypair
 from openstack.compute.v2.server import Server as OpenstackServer
@@ -36,6 +35,29 @@ _CREATE_SERVER_TIMEOUT = 5 * 60
 _SSH_TIMEOUT = 30
 _SSH_KEY_PATH = Path("/home/ubuntu/.ssh")
 _TEST_STRING = "test_string"
+
+
+@dataclass
+class OpenStackCredentials:
+    """OpenStack credentials.
+
+    Attributes:
+        auth_url: The auth url of the OpenStack host.
+        project_name: The project name to log in to.
+        username: The username to login with.
+        password: The password to login with.
+        region_name: The region.
+        user_domain_name: The domain name containing the user.
+        project_domain_name: The domain name containing the project.
+    """
+
+    auth_url: str
+    project_name: str
+    username: str
+    password: str
+    region_name: str
+    user_domain_name: str
+    project_domain_name: str
 
 
 @dataclass
@@ -88,16 +110,11 @@ class OpenstackInstance:
 
 @contextmanager
 @retry(tries=2, delay=5, local_logger=logger)
-def _get_openstack_connection(
-    clouds_config: dict[str, dict], cloud: str
-) -> Iterator[OpenstackConnection]:
+def _get_openstack_connection(credentials: OpenStackCredentials) -> Iterator[OpenstackConnection]:
     """Create a connection context managed object, to be used within with statements.
 
-    The file of _CLOUDS_YAML_PATH should only be modified by this function.
-
     Args:
-        clouds_config: The configuration in clouds.yaml format to apply.
-        cloud: The name of cloud to use in the clouds.yaml.
+        credentials: The OpenStack authorization information.
 
     Raises:
         OpenStackError: if the credentials provided is not authorized.
@@ -105,18 +122,18 @@ def _get_openstack_connection(
     Yields:
         An openstack.connection.Connection object.
     """
-    if not _CLOUDS_YAML_PATH.exists():
-        _CLOUDS_YAML_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-    # Concurrency: Very small chance for the file to be corrupted due to multiple process calling
-    # this function and writing the file at the same time. This should cause the `conn.authorize`
-    # to fail, and retry of this function would resolve this.
-    _CLOUDS_YAML_PATH.write_text(data=yaml.dump(clouds_config), encoding="utf-8")
-
     # api documents that keystoneauth1.exceptions.MissingRequiredOptions can be raised but
     # I could not reproduce it. Therefore, no catch here for such exception.
     try:
-        with openstack.connect(cloud=cloud) as conn:
+        with openstack.connect(
+            auth_url=credentials.auth_url,
+            project_name=credentials.project_name,
+            username=credentials.username,
+            password=credentials.password,
+            region_name=credentials.region_name,
+            user_domain_name=credentials.user_domain_name,
+            project_domain_name=credentials.project_domain_name,
+        ) as conn:
             conn.authorize()
             yield conn
     # pylint thinks this isn't an exception, but does inherit from Exception class.
@@ -133,17 +150,15 @@ class OpenstackCloud:
     get_server_name.
     """
 
-    def __init__(self, clouds_config: dict[str, dict], cloud: str, prefix: str):
+    def __init__(self, credentials: OpenStackCredentials, prefix: str):
         """Create the object.
 
         Args:
-            clouds_config: The openstack clouds.yaml in dict format.
-            cloud: The name of cloud to use in the clouds.yaml.
+            credentials: The OpenStack authorization information.
             prefix: Prefix attached to names of resource managed by this instance. Used for
                 identifying which resource belongs to this instance.
         """
-        self._clouds_config = clouds_config
-        self._cloud = cloud
+        self._credentials = credentials
         self.prefix = prefix
 
     # Ignore "Too many arguments" as 6 args should be fine. Move to a dataclass if new args are
@@ -169,9 +184,7 @@ class OpenstackCloud:
         full_name = self.get_server_name(instance_id)
         logger.info("Creating openstack server with %s", full_name)
 
-        with _get_openstack_connection(
-            clouds_config=self._clouds_config, cloud=self._cloud
-        ) as conn:
+        with _get_openstack_connection(credentials=self._credentials) as conn:
             security_group = OpenstackCloud._ensure_security_group(conn)
             keypair = OpenstackCloud._setup_keypair(conn, full_name)
 
@@ -215,9 +228,7 @@ class OpenstackCloud:
         full_name = self.get_server_name(instance_id)
         logger.info("Getting openstack server with %s", full_name)
 
-        with _get_openstack_connection(
-            clouds_config=self._clouds_config, cloud=self._cloud
-        ) as conn:
+        with _get_openstack_connection(credentials=self._credentials) as conn:
             server = OpenstackCloud._get_and_ensure_unique_server(conn, full_name)
             if server is not None:
                 return OpenstackInstance(server, self.prefix)
@@ -232,9 +243,7 @@ class OpenstackCloud:
         full_name = self.get_server_name(instance_id)
         logger.info("Deleting openstack server with %s", full_name)
 
-        with _get_openstack_connection(
-            clouds_config=self._clouds_config, cloud=self._cloud
-        ) as conn:
+        with _get_openstack_connection(credentials=self._credentials) as conn:
             self._delete_instance(conn, full_name)
 
     def _delete_instance(self, conn: OpenstackConnection, full_name: str) -> None:
@@ -319,9 +328,7 @@ class OpenstackCloud:
         """
         logger.info("Getting all openstack servers managed by the charm")
 
-        with _get_openstack_connection(
-            clouds_config=self._clouds_config, cloud=self._cloud
-        ) as conn:
+        with _get_openstack_connection(credentials=self._credentials) as conn:
             instance_list = self._get_openstack_instances(conn)
             server_names = set(server.name for server in instance_list)
 
@@ -336,9 +343,7 @@ class OpenstackCloud:
 
     def cleanup(self) -> None:
         """Cleanup unused key files and openstack keypairs."""
-        with _get_openstack_connection(
-            clouds_config=self._clouds_config, cloud=self._cloud
-        ) as conn:
+        with _get_openstack_connection(credentials=self._credentials) as conn:
             instances = self._get_openstack_instances(conn)
             exclude_list = [server.name for server in instances]
             self._cleanup_key_files(exclude_list)

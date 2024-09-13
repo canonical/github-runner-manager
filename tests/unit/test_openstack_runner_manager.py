@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from github_runner_manager.openstack_cloud import openstack_runner_manager
+from src.github_runner_manager.openstack_cloud.openstack_cloud import OpenStackCredentials
 from tests.unit.factories import openstack_factory
 
 
@@ -19,22 +20,14 @@ def mock_openstack_runner_manager_fixture():
     return openstack_runner_manager.OpenStackRunnerManager(
         manager_name="mock-manager",
         prefix="mock-manager",
-        cloud_config=openstack_runner_manager.OpenStackCloudConfig(
-            clouds_config={
-                "clouds": {
-                    "testcloud": {
-                        "auth": {
-                            "auth_url": "http://test-keystone-url.com",
-                            "password": secrets.token_hex(16),
-                            "project_domain_name": "test-project-domain-name",
-                            "project_name": "test-project-name",
-                            "user_domain_name": "test-user-domain-name",
-                            "username": "test-user-name",
-                        }
-                    }
-                }
-            },
-            cloud="testcloud",
+        credentials=OpenStackCredentials(
+            auth_url="http://test-keystone-url.com",
+            project_name="test-project-name",
+            username="test-user-name",
+            password=secrets.token_hex(16),
+            region_name="test-region-name",
+            project_domain_name="test-project-domain-name",
+            user_domain_name="test-user-domain-name",
         ),
         server_config=openstack_runner_manager.OpenStackServerConfig(
             image="test-image", flavor="test-flavor", network="test-network"
