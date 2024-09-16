@@ -19,7 +19,12 @@ from ghapi.page import paged
 from pydantic import HttpUrl
 from typing_extensions import assert_never
 
-from github_runner_manager.errors import GithubApiError, JobNotFoundError, TokenError
+from github_runner_manager.errors import (
+    GithubApiError,
+    JobNotFoundError,
+    TokenError,
+    WrongUrlError,
+)
 from github_runner_manager.types_.github import (
     GitHubOrg,
     GitHubPath,
@@ -272,17 +277,17 @@ class GithubClient:
             url: The URL to call.
 
         Raises:
-            ValueError: If the URL is not a GitHub API URL.
+            WrongUrlError: If the URL is not a GitHub API URL.
 
         Returns:
             The JSON response from the API.
         """
         if not url.startswith("https://api.github.com"):
-            raise ValueError("Only GitHub API URLs are allowed.")
+            raise WrongUrlError("Only GitHub API URLs are allowed.")
         # use urllib to make an authenticated requests using the github token
         request = urllib.request.Request(url, headers={"Authorization": f"token {self._token}"})
         request.add_header("Accept", "application/vnd.github+json")
         request.add_header("X-GitHub-Api-Version", "2022-11-28")
-        # we check that the url is a valid github api url
+        # We have checked that the url is a valid github api url, so we can safely call the API.
         with urllib.request.urlopen(request) as response:  # nosec
             return json.loads(response.read())

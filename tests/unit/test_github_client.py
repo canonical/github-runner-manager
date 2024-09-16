@@ -1,6 +1,7 @@
 # Copyright 2024 Canonical Ltd.
 #  See LICENSE file for licensing details.
 import http
+import json
 import random
 import secrets
 from collections import namedtuple
@@ -10,7 +11,7 @@ from urllib.error import HTTPError
 
 import pytest
 
-from github_runner_manager.errors import JobNotFoundError
+from github_runner_manager.errors import JobNotFoundError, WrongUrlError
 from github_runner_manager.github_client import GithubClient
 from github_runner_manager.types_.github import GitHubRepo, JobConclusion, JobStats
 
@@ -18,6 +19,8 @@ JobStatsRawData = namedtuple(
     "JobStatsRawData",
     ["created_at", "started_at", "runner_name", "conclusion", "id"],
 )
+
+TEST_URLLIB_RESPONSE_JSON = {"test": "test"}
 
 
 @pytest.fixture(name="job_stats_raw")
@@ -33,8 +36,18 @@ def job_stats_fixture() -> JobStatsRawData:
     )
 
 
+@pytest.fixture(name="urllib_urlopen_mock")
+def urllib_open_mock_fixture(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Mock the urllib.request.urlopen function."""
+    urllib_open_mock = MagicMock()
+    monkeypatch.setattr("urllib.request.urlopen", urllib_open_mock)
+    return urllib_open_mock
+
+
 @pytest.fixture(name="github_client")
-def github_client_fixture(job_stats_raw: JobStatsRawData) -> GithubClient:
+def github_client_fixture(
+    job_stats_raw: JobStatsRawData, urllib_urlopen_mock: MagicMock
+) -> GithubClient:
     """Create a GithubClient object with a mocked GhApi object."""
     gh_client = GithubClient("token")
     gh_client._client = MagicMock()
@@ -49,6 +62,9 @@ def github_client_fixture(job_stats_raw: JobStatsRawData) -> GithubClient:
             }
         ]
     }
+    urllib_urlopen_mock.return_value.__enter__.return_value.read.return_value = json.dumps(
+        TEST_URLLIB_RESPONSE_JSON
+    ).encode("utf-8")
 
     return gh_client
 
@@ -205,3 +221,23 @@ def test_github_api_http_error(github_client: GithubClient, job_stats_raw: JobSt
             workflow_run_id=secrets.token_hex(16),
             runner_name=job_stats_raw.runner_name,
         )
+
+
+def test_github_client_get(github_client: GithubClient):
+    """
+    arrange: A mocked Github Client that returns a response.
+    act: Call get.
+    assert: The response is returned.
+    """
+    response = github_client.get("https://api.github.com/test")
+    assert response == TEST_URLLIB_RESPONSE_JSON
+
+
+def test_github_client_get_wrong_url(github_client: GithubClient):
+    """
+    arrange: A mocked Github Client that returns a response.
+    act: Call get with a wrong url, not starting with https://api.github.com.
+    assert: An exception is raised.
+    """
+    with pytest.raises(WrongUrlError):
+        github_client.get("https://example.com/test")
