@@ -17,7 +17,7 @@ Module for managing reactive runners.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/runner_manager.py#L40"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/runner_manager.py#L41"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `reconcile`
 
