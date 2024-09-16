@@ -3,6 +3,7 @@
 
 import secrets
 from contextlib import closing
+from queue import Empty
 from unittest.mock import MagicMock
 
 import pytest
@@ -24,11 +25,18 @@ def queue_config_fixture() -> QueueConfig:
     # we use construct to avoid pydantic validation as IN_MEMORY_URI is not a valid URL
     return QueueConfig.construct(mongodb_uri=IN_MEMORY_URI, queue_name=queue_name)
 
-def test_consume(caplog: pytest.LogCaptureFixture, queue_config: QueueConfig):
+
+@pytest.fixture(name="mock_sleep", autouse=True)
+def mock_sleep_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mock the sleep function."""
+    monkeypatch.setattr(consumer, "sleep", lambda _: None)
+
+
+def test_consume(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
     """
-    arrange: A job placed in the message queue.
-    act: Call consume
-    assert: The job is logged.
+    arrange: A job placed in the message queue which has not yet been picked up.
+    act: Call consume.
+    assert: A runner is created and the message is acknowledged.
     """
     job_details = consumer.JobDetails(
         labels=[secrets.token_hex(16), secrets.token_hex(16)],
@@ -36,10 +44,53 @@ def test_consume(caplog: pytest.LogCaptureFixture, queue_config: QueueConfig):
     )
     _put_in_queue(job_details.json(), queue_config.queue_name)
 
+    runner_manager_mock = MagicMock(spec=consumer.RunnerManager)
+    github_client_mock = MagicMock(spec=consumer.GithubClient)
+    github_client_mock.get.side_effect = [
+        {"status": "queued"},
+        {"status": consumer.JobPickedUpStates.IN_PROGRESS},
+    ]
 
-    consumer.consume(queue_config=queue_config, runner_manager=MagicMock())
-    assert str(job_details.labels) in caplog.text
-    assert job_details.run_url in caplog.text
+    consumer.consume(
+        queue_config=queue_config,
+        runner_manager=runner_manager_mock,
+        github_client=github_client_mock,
+    )
+
+    runner_manager_mock.create_runners.assert_called_once_with(1)
+
+    # Ensure message has been acknowledged by assuming an Empty exception is raised
+    with pytest.raises(Empty):
+        _consume_from_queue(queue_config.queue_name)
+
+
+def test_consume_reject_if_job_gets_not_picked_up(
+    monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig
+):
+    """
+    arrange: A job placed in the message queue which will not get picked up.
+    act: Call consume.
+    assert: The message is requeued.
+    """
+    job_details = consumer.JobDetails(
+        labels=[secrets.token_hex(16), secrets.token_hex(16)],
+        run_url=FAKE_RUN_URL,
+    )
+    _put_in_queue(job_details.json(), queue_config.queue_name)
+
+    runner_manager_mock = MagicMock(spec=consumer.RunnerManager)
+    github_client_mock = MagicMock(spec=consumer.GithubClient)
+    github_client_mock.get.return_value = {"status": "queued"}
+
+    consumer.consume(
+        queue_config=queue_config,
+        runner_manager=runner_manager_mock,
+        github_client=github_client_mock,
+    )
+
+    # Ensure message has been requeued by reconsuming it
+    msg = _consume_from_queue(queue_config.queue_name)
+    assert msg.payload == job_details.json()
 
 
 @pytest.mark.parametrize(
@@ -63,8 +114,16 @@ def test_job_details_validation_error(job_str: str, queue_config: QueueConfig):
     queue_name = queue_config.queue_name
     _put_in_queue(job_str, queue_name)
 
+    runner_manager_mock = MagicMock(spec=consumer.RunnerManager)
+    github_client_mock = MagicMock(spec=consumer.GithubClient)
+    github_client_mock.get.return_value = {"status": consumer.JobPickedUpStates.IN_PROGRESS}
+
     with pytest.raises(JobError) as exc_info:
-        consumer.consume(queue_config=queue_config, runner_manager=MagicMock())
+        consumer.consume(
+            queue_config=queue_config,
+            runner_manager=runner_manager_mock,
+            github_client=github_client_mock,
+        )
     assert "Invalid job details" in str(exc_info.value)
 
     # Ensure message has been requeued by reconsuming it

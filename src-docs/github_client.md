@@ -10,7 +10,7 @@ Migrate to PyGithub in the future. PyGithub is still lacking some API such as re
 
 ---
 
-<a href="../src/github_runner_manager/github_client.py#L38"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/github_client.py#L43"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `catch_http_errors`
 
@@ -36,12 +36,12 @@ Catch HTTP errors and raise custom exceptions.
 
 ---
 
-<a href="../src/github_runner_manager/github_client.py#L77"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/github_client.py#L82"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `GithubClient`
 GitHub API client. 
 
-<a href="../src/github_runner_manager/github_client.py#L80"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/github_client.py#L85"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `__init__`
 
@@ -62,7 +62,7 @@ Instantiate the GiHub API client.
 
 ---
 
-<a href="../src/github_runner_manager/github_client.py#L182"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/github_client.py#L187"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `delete_runner`
 
@@ -81,19 +81,48 @@ Delete the self-hosted runner from GitHub.
 
 ---
 
-<a href="../src/github_runner_manager/github_client.py#L203"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/github_client.py#L267"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
-### <kbd>method</kbd> `get_job_info`
+### <kbd>method</kbd> `get`
 
 ```python
-get_job_info(
+get(url: HttpUrl) → dict | list | str | int | float | bool | None
+```
+
+Make a GET call to the GitHub API. 
+
+
+
+**Args:**
+ 
+ - <b>`url`</b>:  The URL to call. 
+
+
+
+**Raises:**
+ 
+ - <b>`ValueError`</b>:  If the URL is not a GitHub API URL. 
+
+
+
+**Returns:**
+ The JSON response from the API. 
+
+---
+
+<a href="../src/github_runner_manager/github_client.py#L208"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+
+### <kbd>method</kbd> `get_job_stats`
+
+```python
+get_job_stats(
     path: GitHubRepo,
     workflow_run_id: str,
     runner_name: str
 ) → JobStats
 ```
 
-Get information about a job for a specific workflow run. 
+Get information about a job for a specific workflow run identified by the runner name. 
 
 
 
@@ -117,7 +146,7 @@ Get information about a job for a specific workflow run.
 
 ---
 
-<a href="../src/github_runner_manager/github_client.py#L89"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/github_client.py#L94"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get_runner_github_info`
 
@@ -140,7 +169,7 @@ Get runner information on GitHub under a repo or org.
 
 ---
 
-<a href="../src/github_runner_manager/github_client.py#L159"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/github_client.py#L164"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get_runner_registration_token`
 
@@ -163,7 +192,7 @@ Get token from GitHub used for registering runners.
 
 ---
 
-<a href="../src/github_runner_manager/github_client.py#L137"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/github_client.py#L142"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get_runner_remove_token`
 

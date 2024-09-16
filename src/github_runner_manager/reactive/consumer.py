@@ -7,17 +7,32 @@ import logging
 import signal
 import sys
 from contextlib import closing
+from enum import Enum
+from time import sleep
 from types import FrameType
 from typing import Generator, cast
 
-from kombu import Connection
+from kombu import Connection, Message
 from kombu.simple import SimpleQueue
 from pydantic import BaseModel, HttpUrl, ValidationError
 
+from github_runner_manager.github_client import GithubClient
 from github_runner_manager.manager.runner_manager import RunnerManager
 from github_runner_manager.reactive.types_ import QueueConfig
 
 logger = logging.getLogger(__name__)
+
+
+class JobPickedUpStates(str, Enum):
+    """The states of a job that indicate it has been picked up.
+
+    Attributes:
+        COMPLETED: The job has completed.
+        IN_PROGRESS: The job is in progress.
+    """
+
+    COMPLETED = "completed"
+    IN_PROGRESS = "in_progress"
 
 
 class JobDetails(BaseModel):
@@ -36,7 +51,9 @@ class JobError(Exception):
     """Raised when a job error occurs."""
 
 
-def consume(queue_config: QueueConfig, runner_manager: RunnerManager) -> None:
+def consume(
+    queue_config: QueueConfig, runner_manager: RunnerManager, github_client: GithubClient
+) -> None:
     """Consume a job from the message queue.
 
     Log the job details and acknowledge the message.
@@ -45,6 +62,7 @@ def consume(queue_config: QueueConfig, runner_manager: RunnerManager) -> None:
     Args:
         queue_config: The configuration for the message queue.
         runner_manager: The runner manager used to create the runner.
+        github_client: The GitHub client to use to check the job status.
 
     Raises:
         JobError: If the job details are invalid.
@@ -55,7 +73,6 @@ def consume(queue_config: QueueConfig, runner_manager: RunnerManager) -> None:
                 msg = simple_queue.get(block=True)
                 try:
                     job_details = cast(JobDetails, JobDetails.parse_raw(msg.payload))
-                    #runner_manager.create_runners(1)
                 except ValidationError as exc:
                     msg.reject(requeue=True)
                     raise JobError(f"Invalid job details: {msg.payload}") from exc
@@ -64,7 +81,58 @@ def consume(queue_config: QueueConfig, runner_manager: RunnerManager) -> None:
                     job_details.labels,
                     job_details.run_url,
                 )
-                msg.ack()
+                _spawn_runner(
+                    runner_manager=runner_manager,
+                    job_url=job_details.run_url,
+                    msg=msg,
+                    github_client=github_client,
+                )
+
+
+def _spawn_runner(
+    runner_manager: RunnerManager, job_url: HttpUrl, msg: Message, github_client: GithubClient
+) -> None:
+    """Spawn a runner.
+
+    A runner is only spawned if the job has not yet been picked up by a runner.
+    After spawning a runner, it is checked if the job has been picked up.
+
+    If the job has been picked up, the message is acknowledged.
+    If the job has not been picked up after 5 minutes, the message is rejected and requeued.
+
+    Args:
+        runner_manager: The runner manager to use.
+        job_url: The URL of the job.
+        msg: The message to acknowledge or reject.
+        github_client: The GitHub client to use to check the job status.
+    """
+    if _check_job_been_picked_up(job_url=job_url, github_client=github_client):
+        msg.ack()
+        return
+    runner_manager.create_runners(1)
+    for _ in range(10):
+        if _check_job_been_picked_up(job_url=job_url, github_client=github_client):
+            msg.ack()
+            break
+        sleep(30)
+    else:
+        msg.reject(requeue=True)
+
+
+def _check_job_been_picked_up(job_url: HttpUrl, github_client: GithubClient) -> bool:
+    """Check if the job has already been picked up.
+
+    Args:
+        job_url: The URL of the job.
+        github_client: The GitHub client to use to check the job status.
+
+    Returns:
+        True if the job has been picked up, False otherwise.
+    """
+    # See response format:
+    # https://docs.github.com/en/rest/actions/workflow-jobs?apiVersion=2022-11-28#get-a-job-for-a-workflow-run
+    response = github_client.get(job_url)
+    return response["status"] in [*JobPickedUpStates]
 
 
 @contextlib.contextmanager

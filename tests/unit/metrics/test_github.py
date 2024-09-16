@@ -38,7 +38,7 @@ def test_job(pre_job_metrics: PreJobMetrics):
     runner_name = secrets.token_hex(16)
     created_at = datetime(2021, 10, 1, 0, 0, 0, tzinfo=timezone.utc)
     started_at = created_at + timedelta(seconds=3600)
-    github_client.get_job_info.return_value = JobStats(
+    github_client.get_job_stats.return_value = JobStats(
         created_at=created_at,
         started_at=started_at,
         runner_name=runner_name,
@@ -62,7 +62,7 @@ def test_job_job_not_found(pre_job_metrics: PreJobMetrics):
     """
     github_client = MagicMock(spec=GithubClient)
     runner_name = secrets.token_hex(16)
-    github_client.get_job_info.side_effect = JobNotFoundError("Job not found")
+    github_client.get_job_stats.side_effect = JobNotFoundError("Job not found")
 
     with pytest.raises(GithubMetricsError):
         github_metrics.job(

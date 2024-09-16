@@ -30,8 +30,10 @@ class RunnerConfig(BaseModel):
         queue: The queue configuration.
         runner_manager: The runner manager configuration.
         cloud_runner_manager: The OpenStack runner manager configuration.
+        github_token: str
     """
 
     queue: QueueConfig
     runner_manager: RunnerManagerConfig
     cloud_runner_manager: OpenStackRunnerManagerConfig
+    github_token: str

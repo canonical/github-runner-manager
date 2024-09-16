@@ -7,13 +7,16 @@ Migrate to PyGithub in the future. PyGithub is still lacking some API such as
 remove token for runner.
 """
 import functools
+import json
 import logging
+import urllib.request
 from datetime import datetime
 from typing import Callable, ParamSpec, TypeVar
 from urllib.error import HTTPError
 
 from ghapi.all import GhApi, pages
 from ghapi.page import paged
+from pydantic import HttpUrl
 from typing_extensions import assert_never
 
 from github_runner_manager.errors import GithubApiError, JobNotFoundError, TokenError
@@ -33,6 +36,8 @@ logger = logging.getLogger(__name__)
 ParamT = ParamSpec("ParamT")
 # Return type of the function decorated with retry
 ReturnT = TypeVar("ReturnT")
+
+Json = dict | list | str | int | float | bool | None
 
 
 def catch_http_errors(func: Callable[ParamT, ReturnT]) -> Callable[ParamT, ReturnT]:
@@ -200,8 +205,8 @@ class GithubClient:
                 runner_id=runner_id,
             )
 
-    def get_job_info(self, path: GitHubRepo, workflow_run_id: str, runner_name: str) -> JobStats:
-        """Get information about a job for a specific workflow run.
+    def get_job_stats(self, path: GitHubRepo, workflow_run_id: str, runner_name: str) -> JobStats:
+        """Get information about a job for a specific workflow run identified by the runner name.
 
         Args:
             path: GitHub repository path in the format '<owner>/<repo>'.
@@ -258,3 +263,26 @@ class GithubClient:
             ) from exc
 
         raise JobNotFoundError(f"Could not find job for runner {runner_name}.")
+
+    @catch_http_errors
+    def get(self, url: HttpUrl) -> Json:
+        """Make a GET call to the GitHub API.
+
+        Args:
+            url: The URL to call.
+
+        Raises:
+            ValueError: If the URL is not a GitHub API URL.
+
+        Returns:
+            The JSON response from the API.
+        """
+        if not url.startswith("https://api.github.com"):
+            raise ValueError("Only GitHub API URLs are allowed.")
+        # use urllib to make an authenticated requests using the github token
+        request = urllib.request.Request(url, headers={"Authorization": f"token {self._token}"})
+        request.add_header("Accept", "application/vnd.github+json")
+        request.add_header("X-GitHub-Api-Version", "2022-11-28")
+        # we check that the url is a valid github api url
+        with urllib.request.urlopen(request) as response:  # nosec
+            return json.loads(response.read())

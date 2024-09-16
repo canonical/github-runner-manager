@@ -34,7 +34,7 @@ def job(
     owner, repo = pre_job_metrics.repository.split("/", maxsplit=1)
 
     try:
-        job_info = github_client.get_job_info(
+        job_info = github_client.get_job_stats(
             path=GitHubRepo(owner=owner, repo=repo),
             workflow_run_id=pre_job_metrics.workflow_run_id,
             runner_name=runner_name,

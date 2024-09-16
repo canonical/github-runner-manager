@@ -39,6 +39,7 @@ The configuration for the reactive runner to spawn.
  - <b>`queue`</b>:  The queue configuration. 
  - <b>`runner_manager`</b>:  The runner manager configuration. 
  - <b>`cloud_runner_manager`</b>:  The OpenStack runner manager configuration. 
+ - <b>`github_token`</b>:  str 
 
 
 

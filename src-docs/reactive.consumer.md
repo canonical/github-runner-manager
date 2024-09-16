@@ -8,12 +8,16 @@ Module responsible for consuming jobs from the message queue.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/consumer.py#L39"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/consumer.py#L54"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `consume`
 
 ```python
-consume(queue_config: QueueConfig, runner_manager: RunnerManager) → None
+consume(
+    queue_config: QueueConfig,
+    runner_manager: RunnerManager,
+    github_client: GithubClient
+) → None
 ```
 
 Consume a job from the message queue. 
@@ -26,6 +30,7 @@ Log the job details and acknowledge the message. If the job details are invalid,
  
  - <b>`queue_config`</b>:  The configuration for the message queue. 
  - <b>`runner_manager`</b>:  The runner manager used to create the runner. 
+ - <b>`github_client`</b>:  The GitHub client to use to check the job status. 
 
 
 
@@ -36,7 +41,7 @@ Log the job details and acknowledge the message. If the job details are invalid,
 
 ---
 
-<a href="../reactive/consumer/signal_handler#L70"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../reactive/consumer/signal_handler#L138"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `signal_handler`
 
@@ -57,7 +62,25 @@ The signal handler exits the process.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/consumer.py#L23"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/consumer.py#L26"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+
+## <kbd>class</kbd> `JobPickedUpStates`
+The states of a job that indicate it has been picked up. 
+
+
+
+**Attributes:**
+ 
+ - <b>`COMPLETED`</b>:  The job has completed. 
+ - <b>`IN_PROGRESS`</b>:  The job is in progress. 
+
+
+
+
+
+---
+
+<a href="../src/github_runner_manager/reactive/consumer.py#L38"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `JobDetails`
 A class to translate the payload. 
@@ -75,7 +98,7 @@ A class to translate the payload.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/consumer.py#L35"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/consumer.py#L50"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `JobError`
 Raised when a job error occurs. 

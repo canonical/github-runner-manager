@@ -47,7 +47,7 @@ def mock_openstack_runner_manager_fixture():
             dockerhub_mirror=None,
             ssh_debug_connections=None,
             repo_policy_compliance=None,
-        )
+        ),
     )
     return openstack_runner_manager.OpenStackRunnerManager(config=config)
 

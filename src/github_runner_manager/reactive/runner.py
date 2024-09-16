@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 
+from github_runner_manager.github_client import GithubClient
 from github_runner_manager.manager.runner_manager import RunnerManager
 from github_runner_manager.openstack_cloud.openstack_runner_manager import OpenStackRunnerManager
 from github_runner_manager.reactive.consumer import consume
@@ -47,7 +48,8 @@ def main() -> None:
         cloud_runner_manager=openstack_runner_manager,
         config=runner_config.runner_manager,
     )
-    consume(queue_config=queue_config, runner_manager=runner_manager)
+    github_client = GithubClient(token=runner_config.github_token)
+    consume(queue_config=queue_config, runner_manager=runner_manager, github_client=github_client)
 
 
 if __name__ == "__main__":

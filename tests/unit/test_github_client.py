@@ -95,7 +95,7 @@ def test_get_job_info(github_client: GithubClient, job_stats_raw: JobStatsRawDat
     assert: The correct JobStats object is returned.
     """
     github_repo = GitHubRepo(owner=secrets.token_hex(16), repo=secrets.token_hex(16))
-    job_stats = github_client.get_job_info(
+    job_stats = github_client.get_job_stats(
         path=github_repo,
         workflow_run_id=secrets.token_hex(16),
         runner_name=job_stats_raw.runner_name,
@@ -128,7 +128,7 @@ def test_get_job_info_no_conclusion(github_client: GithubClient, job_stats_raw: 
         ]
     }
     github_repo = GitHubRepo(owner=secrets.token_hex(16), repo=secrets.token_hex(16))
-    job_stats = github_client.get_job_info(
+    job_stats = github_client.get_job_stats(
         path=github_repo,
         workflow_run_id=secrets.token_hex(16),
         runner_name=job_stats_raw.runner_name,
@@ -156,7 +156,7 @@ def test_github_api_pagination_multiple_pages(
     )
 
     github_repo = GitHubRepo(owner=secrets.token_hex(16), repo=secrets.token_hex(16))
-    job_stats = github_client.get_job_info(
+    job_stats = github_client.get_job_stats(
         path=github_repo,
         workflow_run_id=secrets.token_hex(16),
         runner_name=job_stats_raw.runner_name,
@@ -186,7 +186,7 @@ def test_github_api_pagination_job_not_found(
     github_repo = GitHubRepo(owner=secrets.token_hex(16), repo=secrets.token_hex(16))
 
     with pytest.raises(JobNotFoundError):
-        github_client.get_job_info(
+        github_client.get_job_stats(
             path=github_repo,
             workflow_run_id=secrets.token_hex(16),
             runner_name=job_stats_raw.runner_name,
@@ -200,7 +200,7 @@ def test_github_api_http_error(github_client: GithubClient, job_stats_raw: JobSt
     github_repo = GitHubRepo(owner=secrets.token_hex(16), repo=secrets.token_hex(16))
 
     with pytest.raises(JobNotFoundError):
-        github_client.get_job_info(
+        github_client.get_job_stats(
             path=github_repo,
             workflow_run_id=secrets.token_hex(16),
             runner_name=job_stats_raw.runner_name,
