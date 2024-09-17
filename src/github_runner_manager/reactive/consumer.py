@@ -19,6 +19,7 @@ from pydantic import BaseModel, HttpUrl, ValidationError
 from github_runner_manager.github_client import GithubClient
 from github_runner_manager.manager.runner_manager import RunnerManager
 from github_runner_manager.reactive.types_ import QueueConfig
+from github_runner_manager.types_.github import GitHubRepo
 
 logger = logging.getLogger(__name__)
 
@@ -129,10 +130,19 @@ def _check_job_been_picked_up(job_url: HttpUrl, github_client: GithubClient) -> 
     Returns:
         True if the job has been picked up, False otherwise.
     """
+    # job_url has the format:
+    # "https://api.github.com/repos/cbartz/gh-runner-test/actions/jobs/22428484402"
+    path = job_url.path
+    job_url_path_parts = path.split("/")
+    job_id = job_url_path_parts[-1]
+    owner = job_url_path_parts[1]
+    repo = job_url_path_parts[2]
+
     # See response format:
     # https://docs.github.com/en/rest/actions/workflow-jobs?apiVersion=2022-11-28#get-a-job-for-a-workflow-run
-    response = github_client.get(job_url)
-    return response["status"] in [*JobPickedUpStates]
+
+    job_info = github_client.get_job_info(path=GitHubRepo(owner=owner, repo=repo), job_id=job_id)
+    return job_info.status in [*JobPickedUpStates]
 
 
 @contextlib.contextmanager

@@ -3,7 +3,9 @@
 
 import secrets
 from contextlib import closing
+from datetime import datetime, timedelta, timezone
 from queue import Empty
+from random import randint
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,6 +14,7 @@ from kombu import Connection, Message
 from github_runner_manager.reactive import consumer
 from github_runner_manager.reactive.consumer import JobError
 from github_runner_manager.reactive.types_ import QueueConfig
+from github_runner_manager.types_.github import JobInfo, JobConclusion, JobStatus
 
 IN_MEMORY_URI = "memory://"
 FAKE_RUN_URL = "https://api.github.com/repos/fakeusergh-runner-test/actions/runs/8200803099"
@@ -46,9 +49,9 @@ def test_consume(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
 
     runner_manager_mock = MagicMock(spec=consumer.RunnerManager)
     github_client_mock = MagicMock(spec=consumer.GithubClient)
-    github_client_mock.get.side_effect = [
-        {"status": "queued"},
-        {"status": consumer.JobPickedUpStates.IN_PROGRESS},
+    github_client_mock.get_job_info.side_effect = [
+        _create_job_info(JobStatus.QUEUED),
+        _create_job_info(JobStatus.IN_PROGRESS),
     ]
 
     consumer.consume(
@@ -62,6 +65,8 @@ def test_consume(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
     # Ensure message has been acknowledged by assuming an Empty exception is raised
     with pytest.raises(Empty):
         _consume_from_queue(queue_config.queue_name)
+
+
 
 
 def test_consume_reject_if_job_gets_not_picked_up(
@@ -80,7 +85,7 @@ def test_consume_reject_if_job_gets_not_picked_up(
 
     runner_manager_mock = MagicMock(spec=consumer.RunnerManager)
     github_client_mock = MagicMock(spec=consumer.GithubClient)
-    github_client_mock.get.return_value = {"status": "queued"}
+    github_client_mock.get_job_info.return_value = _create_job_info(JobStatus.QUEUED)
 
     consumer.consume(
         queue_config=queue_config,
@@ -116,7 +121,7 @@ def test_job_details_validation_error(job_str: str, queue_config: QueueConfig):
 
     runner_manager_mock = MagicMock(spec=consumer.RunnerManager)
     github_client_mock = MagicMock(spec=consumer.GithubClient)
-    github_client_mock.get.return_value = {"status": consumer.JobPickedUpStates.IN_PROGRESS}
+    github_client_mock.get_job_info.return_value = _create_job_info(JobStatus.IN_PROGRESS)
 
     with pytest.raises(JobError) as exc_info:
         consumer.consume(
@@ -130,6 +135,22 @@ def test_job_details_validation_error(job_str: str, queue_config: QueueConfig):
     msg = _consume_from_queue(queue_name)
     assert msg.payload == job_str
 
+def _create_job_info(status: JobStatus) -> JobInfo:
+    """Create a JobInfo object with the given status.
+
+    Args:
+        status: The status of the job.
+
+    Returns:
+        The JobInfo object.
+    """
+    return JobInfo(
+        created_at=datetime(2021, 10, 1, 0, 0, 0, tzinfo=timezone.utc),
+        started_at=datetime(2021, 10, 1, 1, 0, 0, tzinfo=timezone.utc),
+        conclusion=JobConclusion.SUCCESS,
+        status=status,
+        job_id=randint(1, 1000),
+    )
 
 def _put_in_queue(msg: str, queue_name: str) -> None:
     """Put a job in the message queue.

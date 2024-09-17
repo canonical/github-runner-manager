@@ -73,10 +73,6 @@ class JobNotFoundError(GithubClientError):
     """Represents an error when the job could not be found on GitHub."""
 
 
-class WrongUrlError(GithubClientError):
-    """Represents an error when the URL is invalid."""
-
-
 class OpenStackError(Exception):
     """Base class for OpenStack errors."""
 

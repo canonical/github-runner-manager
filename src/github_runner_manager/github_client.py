@@ -7,29 +7,21 @@ Migrate to PyGithub in the future. PyGithub is still lacking some API such as
 remove token for runner.
 """
 import functools
-import json
 import logging
-import urllib.request
 from datetime import datetime
 from typing import Callable, ParamSpec, TypeVar
 from urllib.error import HTTPError
 
 from ghapi.all import GhApi, pages
 from ghapi.page import paged
-from pydantic import HttpUrl
 from typing_extensions import assert_never
 
-from github_runner_manager.errors import (
-    GithubApiError,
-    JobNotFoundError,
-    TokenError,
-    WrongUrlError,
-)
+from github_runner_manager.errors import GithubApiError, JobNotFoundError, TokenError
 from github_runner_manager.types_.github import (
     GitHubOrg,
     GitHubPath,
     GitHubRepo,
-    JobStats,
+    JobInfo,
     RegistrationToken,
     RemoveToken,
     SelfHostedRunner,
@@ -41,8 +33,6 @@ logger = logging.getLogger(__name__)
 ParamT = ParamSpec("ParamT")
 # Return type of the function decorated with retry
 ReturnT = TypeVar("ReturnT")
-
-Json = dict | list | str | int | float | bool | None
 
 
 def catch_http_errors(func: Callable[ParamT, ReturnT]) -> Callable[ParamT, ReturnT]:
@@ -210,7 +200,9 @@ class GithubClient:
                 runner_id=runner_id,
             )
 
-    def get_job_stats(self, path: GitHubRepo, workflow_run_id: str, runner_name: str) -> JobStats:
+    def get_job_info_by_runner_name(
+        self, path: GitHubRepo, workflow_run_id: str, runner_name: str
+    ) -> JobInfo:
         """Get information about a job for a specific workflow run identified by the runner name.
 
         Args:
@@ -219,7 +211,7 @@ class GithubClient:
             runner_name: Name of the runner.
 
         Raises:
-            TokenError: if there was an error with the Github token crdential provided.
+            TokenError: if there was an error with the Github token credential provided.
             JobNotFoundError: If no jobs were found.
 
         Returns:
@@ -237,27 +229,7 @@ class GithubClient:
                     break
                 for job in jobs:
                     if job["runner_name"] == runner_name:
-                        # datetime strings should be in ISO 8601 format,
-                        # but they can also use Z instead of
-                        # +00:00, which is not supported by datetime.fromisoformat
-                        created_at = datetime.fromisoformat(
-                            job["created_at"].replace("Z", "+00:00")
-                        )
-                        started_at = datetime.fromisoformat(
-                            job["started_at"].replace("Z", "+00:00")
-                        )
-                        # conclusion could be null per api schema, so we need to handle that
-                        # though we would assume that it should always be present,
-                        # as the job should be finished
-                        conclusion = job.get("conclusion", None)
-
-                        job_id = job["id"]
-                        return JobStats(
-                            job_id=job_id,
-                            created_at=created_at,
-                            started_at=started_at,
-                            conclusion=conclusion,
-                        )
+                        return self._to_job_info(job)
 
         except HTTPError as exc:
             if exc.code in (401, 403):
@@ -270,24 +242,49 @@ class GithubClient:
         raise JobNotFoundError(f"Could not find job for runner {runner_name}.")
 
     @catch_http_errors
-    def get(self, url: HttpUrl) -> Json:
-        """Make a GET call to the GitHub API.
+    def get_job_info(self, path: GitHubRepo, job_id: str) -> JobInfo:
+        """Get information about a job identified by the job id.
 
         Args:
-            url: The URL to call.
-
-        Raises:
-            WrongUrlError: If the URL is not a GitHub API URL.
+            path: GitHub repository path in the format '<owner>/<repo>'.
+            job_id: The job id.
 
         Returns:
             The JSON response from the API.
         """
-        if not url.startswith("https://api.github.com"):
-            raise WrongUrlError("Only GitHub API URLs are allowed.")
-        # use urllib to make an authenticated requests using the github token
-        request = urllib.request.Request(url, headers={"Authorization": f"token {self._token}"})
-        request.add_header("Accept", "application/vnd.github+json")
-        request.add_header("X-GitHub-Api-Version", "2022-11-28")
-        # We have checked that the url is a valid github api url, so we can safely call the API.
-        with urllib.request.urlopen(request) as response:  # nosec
-            return json.loads(response.read())
+        job_raw = self._client.actions.get_job_for_workflow_run(
+            owner=path.owner,
+            repo=path.repo,
+            job_id=job_id,
+        )
+        return self._to_job_info(job_raw)
+
+    @staticmethod
+    def _to_job_info(job: dict) -> JobInfo:
+        """Convert the job dict to JobInfo.
+
+        Args:
+            job: The job dict.
+
+        Returns:
+            The JobInfo object.
+        """
+        # datetime strings should be in ISO 8601 format,
+        # but they can also use Z instead of
+        # +00:00, which is not supported by datetime.fromisoformat
+        created_at = datetime.fromisoformat(job["created_at"].replace("Z", "+00:00"))
+        started_at = datetime.fromisoformat(job["started_at"].replace("Z", "+00:00"))
+        # conclusion could be null per api schema, so we need to handle that
+        # though we would assume that it should always be present,
+        # as the job should be finished
+        conclusion = job.get("conclusion", None)
+
+        status = job["status"]
+        job_id = job["id"]
+        return JobInfo(
+            job_id=job_id,
+            created_at=created_at,
+            started_at=started_at,
+            conclusion=conclusion,
+            status=status,
+        )
