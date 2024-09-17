@@ -202,12 +202,12 @@ class OpenStackRunnerManager(CloudRunnerManager):
         except OpenStackError as err:
             raise RunnerCreateError(f"Failed to create {instance_name} openstack runner") from err
 
-        logger.info("Waiting for runner process to startup: %s", instance.server_name)
+        logger.debug("Waiting for runner process to startup: %s", instance.server_name)
         self._wait_runner_startup(instance)
-        logger.info("Waiting for runner process to be running: %s", instance.server_name)
+        logger.debug("Waiting for runner process to be running: %s", instance.server_name)
         self._wait_runner_running(instance)
 
-        logger.info("Issuing runner installed metric: %s", instance.server_name)
+        logger.debug("Issuing runner installed metric: %s", instance.server_name)
         end_timestamp = time.time()
         OpenStackRunnerManager._issue_runner_installed_metric(
             name=instance_name,
@@ -215,7 +215,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
             install_start_timestamp=start_timestamp,
             install_end_timestamp=end_timestamp,
         )
-        logger.info("Runner installed metric complete: %s", instance.server_name)
+        logger.debug("Runner installed metric complete: %s", instance.server_name)
         return instance_id
 
     def get_runner(self, instance_id: InstanceId) -> CloudRunnerInstance | None:
@@ -227,13 +227,13 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             Information on the runner instance.
         """
-        logger.info("Getting runner info %s", instance_id)
+        logger.debug("Getting runner info %s", instance_id)
         instance = self._openstack_cloud.get_instance(instance_id)
-        logger.info(
+        logger.debug(
             "Runner info fetched, checking health %s %s", instance_id, instance.server_name
         )
         healthy = self._runner_health_check(instance=instance)
-        logger.info("Runner health check completed %s %s", instance.server_name, healthy)
+        logger.debug("Runner health check completed %s %s", instance.server_name, healthy)
         return (
             CloudRunnerInstance(
                 name=instance.server_name,
@@ -289,7 +289,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             Any metrics collected during the deletion of the runner.
         """
-        logger.info("Delete instance %s", instance_id)
+        logger.debug("Delete instance %s", instance_id)
         instance = self._openstack_cloud.get_instance(instance_id)
         if instance is None:
             logger.warning(
@@ -298,17 +298,17 @@ class OpenStackRunnerManager(CloudRunnerManager):
             )
             return None
 
-        logger.info(
+        logger.debug(
             "Extract metrics from runner before deletion %s %s", instance_id, instance.server_name
         )
         extracted_metrics = runner_metrics.extract(
             metrics_storage_manager=metrics_storage, runners=set([instance.server_name])
         )
-        logger.info(
+        logger.debug(
             "Metrics extracted, deleting instance %s %s", instance_id, instance.server_name
         )
         self._delete_runner(instance, remove_token)
-        logger.info("Instance deleted successfully %s %s", instance_id, instance.server_name)
+        logger.debug("Instance deleted successfully %s %s", instance_id, instance.server_name)
         return next(extracted_metrics, None)
 
     def flush_runners(
@@ -327,7 +327,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         instance_list = self._openstack_cloud.get_instances()
         for instance in instance_list:
             try:
-                logger.info(
+                logger.debug(
                     "Checking runner state and flushing %s %s",
                     instance.server_id,
                     instance.server_name,
@@ -339,7 +339,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
                     instance.server_name,
                 )
                 continue
-        logger.info("Runners successfully flushed, cleaning up.")
+        logger.debug("Runners successfully flushed, cleaning up.")
         return self.cleanup(remove_token)
 
     def cleanup(self, remove_token: str) -> Iterator[runner_metrics.RunnerMetrics]:
@@ -351,20 +351,20 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             Any metrics retrieved from cleanup runners.
         """
-        logger.info("Getting runner healths for cleanup.")
+        logger.debug("Getting runner healths for cleanup.")
         runners = self._get_runners_health()
         healthy_runner_names = [runner.server_name for runner in runners.healthy]
-        logger.info("Extracting metrics prior to runner deletion.")
+        logger.debug("Extracting metrics prior to runner deletion.")
         metrics = runner_metrics.extract(
             metrics_storage_manager=metrics_storage, runners=set(healthy_runner_names)
         )
-        logger.info("Deleting runners.")
+        logger.debug("Deleting runners.")
         for runner in runners.unhealthy:
             self._delete_runner(runner, remove_token)
 
-        logger.info("Cleaning up runner resources.")
+        logger.debug("Cleaning up runner resources.")
         self._openstack_cloud.cleanup()
-        logger.info("Cleanup completed successfully.")
+        logger.debug("Cleanup completed successfully.")
         return metrics
 
     def _delete_runner(self, instance: OpenstackInstance, remove_token: str) -> None:
@@ -667,7 +667,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
                 "not completed"
             ) from err
 
-        logger.info("Running `cloud-init status` on instance %s.", instance.server_name)
+        logger.debug("Running `cloud-init status` on instance %s.", instance.server_name)
         result: invoke.runners.Result = ssh_conn.run("cloud-init status", warn=True, timeout=60)
         if not result.ok:
             logger.warning(
@@ -678,7 +678,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         # condition via cloud-init status check.
         if CloudInitStatus.DONE in result.stdout:
             return
-        logger.info("Running `ps aux` on instance %s.", instance.server_name)
+        logger.debug("Running `ps aux` on instance %s.", instance.server_name)
         result = ssh_conn.run("ps aux", warn=True, timeout=60)
         if not result.ok:
             logger.warning("SSH run of `ps aux` failed on %s", instance.server_name)
