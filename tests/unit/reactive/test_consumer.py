@@ -14,7 +14,7 @@ from kombu import Connection, Message
 from github_runner_manager.reactive import consumer
 from github_runner_manager.reactive.consumer import JobError
 from github_runner_manager.reactive.types_ import QueueConfig
-from github_runner_manager.types_.github import JobInfo, JobConclusion, JobStatus
+from github_runner_manager.types_.github import JobConclusion, JobInfo, JobStatus
 
 IN_MEMORY_URI = "memory://"
 FAKE_JOB_URL = "https://api.github.com/repos/fakeuser/gh-runner-test/actions/runs/8200803099"
@@ -65,8 +65,6 @@ def test_consume(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
     # Ensure message has been acknowledged by assuming an Empty exception is raised
     with pytest.raises(Empty):
         _consume_from_queue(queue_config.queue_name)
-
-
 
 
 def test_consume_reject_if_job_gets_not_picked_up(
@@ -135,6 +133,7 @@ def test_job_details_validation_error(job_str: str, queue_config: QueueConfig):
     msg = _consume_from_queue(queue_name)
     assert msg.payload == job_str
 
+
 def _create_job_info(status: JobStatus) -> JobInfo:
     """Create a JobInfo object with the given status.
 
@@ -151,6 +150,7 @@ def _create_job_info(status: JobStatus) -> JobInfo:
         status=status,
         job_id=randint(1, 1000),
     )
+
 
 def _put_in_queue(msg: str, queue_name: str) -> None:
     """Put a job in the message queue.

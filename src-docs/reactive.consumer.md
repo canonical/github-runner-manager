@@ -41,7 +41,7 @@ Log the job details and acknowledge the message. If the job details are invalid,
 
 ---
 
-<a href="../reactive/consumer/signal_handler#L148"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../reactive/consumer/signal_handler#L151"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `signal_handler`
 
