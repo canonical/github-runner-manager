@@ -260,6 +260,7 @@ class RunnerScaler:
             this number is never negative as additional processes should terminate after a timeout.
         """
         logger.info("Reactive mode is experimental and not yet fully implemented.")
+        self._manager.cleanup()
         return reactive_runner_manager.reconcile(
             quantity=quantity,
             reactive_config=self._reactive_config,
