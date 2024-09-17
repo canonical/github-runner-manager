@@ -41,11 +41,11 @@ class JobDetails(BaseModel):
 
     Attributes:
         labels: The labels of the job.
-        run_url: The URL of the job.
+        job_url: The URL of the job.
     """
 
     labels: list[str]
-    run_url: HttpUrl
+    job_url: HttpUrl
 
 
 class JobError(Exception):
@@ -80,11 +80,11 @@ def consume(
                 logger.info(
                     "Received job with labels %s and run_url %s",
                     job_details.labels,
-                    job_details.run_url,
+                    job_details.job_url,
                 )
                 _spawn_runner(
                     runner_manager=runner_manager,
-                    job_url=job_details.run_url,
+                    job_url=job_details.job_url,
                     msg=msg,
                     github_client=github_client,
                 )

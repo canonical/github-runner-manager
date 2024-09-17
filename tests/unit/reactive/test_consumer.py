@@ -17,7 +17,7 @@ from github_runner_manager.reactive.types_ import QueueConfig
 from github_runner_manager.types_.github import JobInfo, JobConclusion, JobStatus
 
 IN_MEMORY_URI = "memory://"
-FAKE_RUN_URL = "https://api.github.com/repos/fakeusergh-runner-test/actions/runs/8200803099"
+FAKE_JOB_URL = "https://api.github.com/repos/fakeuser/gh-runner-test/actions/runs/8200803099"
 
 
 @pytest.fixture(name="queue_config")
@@ -43,7 +43,7 @@ def test_consume(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
     """
     job_details = consumer.JobDetails(
         labels=[secrets.token_hex(16), secrets.token_hex(16)],
-        run_url=FAKE_RUN_URL,
+        job_url=FAKE_JOB_URL,
     )
     _put_in_queue(job_details.json(), queue_config.queue_name)
 
@@ -79,7 +79,7 @@ def test_consume_reject_if_job_gets_not_picked_up(
     """
     job_details = consumer.JobDetails(
         labels=[secrets.token_hex(16), secrets.token_hex(16)],
-        run_url=FAKE_RUN_URL,
+        job_url=FAKE_JOB_URL,
     )
     _put_in_queue(job_details.json(), queue_config.queue_name)
 
