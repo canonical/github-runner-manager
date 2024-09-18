@@ -17,7 +17,7 @@ from tests.unit.factories import openstack_factory
 def mock_openstack_runner_manager_fixture():
     """The mocked OpenStackRunnerManager instance."""
     config = openstack_runner_manager.OpenStackRunnerManagerConfig(
-        manager_name="mock-manager",
+        name="mock-manager",
         prefix="mock-manager",
         cloud_config=openstack_runner_manager.OpenStackCloudConfig(
             clouds_config={

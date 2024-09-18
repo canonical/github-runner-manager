@@ -103,7 +103,7 @@ class OpenStackRunnerManagerConfig:
     """Configuration for OpenStack runner manager.
 
     Attributes:
-        manager_name: The name of the manager.
+        name: The name of the manager.
         prefix: The prefix of the runner names.
         cloud_config: The configuration for OpenStack cloud.
         server_config: The configuration for OpenStack server.
@@ -111,7 +111,7 @@ class OpenStackRunnerManagerConfig:
         service_config: The configuration for supporting services.
     """
 
-    manager_name: str
+    name: str
     prefix: str
     cloud_config: OpenStackCloudConfig
     server_config: OpenStackServerConfig | None
@@ -148,7 +148,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Args:
             config: The configuration for the openstack runner manager.
         """
-        self._manager_name = config.manager_name
+        self._manager_name = config.name
         self._prefix = config.prefix
         self._cloud_config = config.cloud_config
         self._server_config = config.server_config

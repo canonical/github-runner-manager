@@ -87,7 +87,7 @@ Configuration for OpenStack runner manager.
 
 **Attributes:**
  
- - <b>`manager_name`</b>:  The name of the manager. 
+ - <b>`name`</b>:  The name of the manager. 
  - <b>`prefix`</b>:  The prefix of the runner names. 
  - <b>`cloud_config`</b>:  The configuration for OpenStack cloud. 
  - <b>`server_config`</b>:  The configuration for OpenStack server. 
@@ -100,7 +100,7 @@ Configuration for OpenStack runner manager.
 
 ```python
 __init__(
-    manager_name: str,
+    name: str,
     prefix: str,
     cloud_config: OpenStackCloudConfig,
     server_config: OpenStackServerConfig | None,
