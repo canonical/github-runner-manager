@@ -14,7 +14,7 @@ from typing import Generator, cast
 
 from kombu import Connection, Message
 from kombu.simple import SimpleQueue
-from pydantic import BaseModel, HttpUrl, ValidationError
+from pydantic import BaseModel, HttpUrl, ValidationError, validator
 
 from github_runner_manager.github_client import GithubClient
 from github_runner_manager.manager.runner_manager import RunnerManager
@@ -46,6 +46,24 @@ class JobDetails(BaseModel):
 
     labels: list[str]
     job_url: HttpUrl
+
+    @validator("job_url")
+    @classmethod
+    def check_job_url_path_is_not_empty(cls, v: HttpUrl) -> HttpUrl:
+        """Check that the job_url path is not empty.
+
+        Args:
+            v: The job_url to check.
+
+        Returns:
+            The job_url if it is valid.
+
+        Raises:
+            ValueError: If the job_url path is empty.
+        """
+        if not v.path:
+            raise ValueError("path must be provided")
+        return v
 
 
 class JobError(Exception):
@@ -133,7 +151,8 @@ def _check_job_been_picked_up(job_url: HttpUrl, github_client: GithubClient) -> 
     # job_url has the format:
     # "https://api.github.com/repos/cbartz/gh-runner-test/actions/jobs/22428484402"
     path = job_url.path
-    job_url_path_parts = path.split("/")
+    # we know that path is not empty as it is validated by the JobDetails model
+    job_url_path_parts = path.split("/")  # type: ignore
     job_id = job_url_path_parts[-1]
     owner = job_url_path_parts[2]
     repo = job_url_path_parts[3]

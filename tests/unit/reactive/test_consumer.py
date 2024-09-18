@@ -3,7 +3,7 @@
 
 import secrets
 from contextlib import closing
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from queue import Empty
 from random import randint
 from unittest.mock import MagicMock
@@ -100,10 +100,15 @@ def test_consume_reject_if_job_gets_not_picked_up(
     "job_str",
     [
         pytest.param(
-            '{"labels": ["label1", "label2"], "status": "completed"}', id="run_url missing"
+            '{"labels": ["label1", "label2"], "status": "completed"}', id="job_url missing"
         ),
         pytest.param(
-            '{"status": "completed", "run_url": "https://example.com"}', id="labels missing"
+            '{"status": "completed", "job_url": "https://example.com/path"}', id="labels missing"
+        ),
+        pytest.param(
+            '{"labels": ["label1", "label2"], "status": "completed", '
+            '"job_url": "https://example.com"}',
+            id="job_url without path",
         ),
         pytest.param("no json at all", id="invalid json"),
     ],

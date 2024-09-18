@@ -8,7 +8,7 @@ Module responsible for consuming jobs from the message queue.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/consumer.py#L55"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/consumer.py#L73"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `consume`
 
@@ -41,7 +41,7 @@ Log the job details and acknowledge the message. If the job details are invalid,
 
 ---
 
-<a href="../reactive/consumer/signal_handler#L151"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../reactive/consumer/signal_handler#L170"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `signal_handler`
 
@@ -95,10 +95,39 @@ A class to translate the payload.
 
 
 
+---
+
+<a href="../src/github_runner_manager/reactive/consumer.py#L50"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+
+### <kbd>classmethod</kbd> `check_job_url_path_is_not_empty`
+
+```python
+check_job_url_path_is_not_empty(v: HttpUrl) → HttpUrl
+```
+
+Check that the job_url path is not empty. 
+
+
+
+**Args:**
+ 
+ - <b>`v`</b>:  The job_url to check. 
+
+
+
+**Returns:**
+ The job_url if it is valid. 
+
+
+
+**Raises:**
+ 
+ - <b>`ValueError`</b>:  If the job_url path is empty. 
+
 
 ---
 
-<a href="../src/github_runner_manager/reactive/consumer.py#L51"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/consumer.py#L69"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `JobError`
 Raised when a job error occurs. 
