@@ -263,5 +263,5 @@ class RunnerScaler:
         self._manager.cleanup()
         return reactive_runner_manager.reconcile(
             quantity=quantity,
-            reactive_config=self._reactive_config,
+            runner_config=self._reactive_config,
         )

@@ -37,13 +37,12 @@ class ReactiveRunnerError(Exception):
     """Raised when a reactive runner error occurs."""
 
 
-# TODO: rename reactive_config argument to runner_config
-def reconcile(quantity: int, reactive_config: RunnerConfig) -> int:
+def reconcile(quantity: int, runner_config: RunnerConfig) -> int:
     """Spawn a runner reactively.
 
     Args:
         quantity: The number of runners to spawn.
-        reactive_config: The reactive runner configuration.
+        runner_config: The reactive runner configuration.
 
     Raises a ReactiveRunnerError if the runner fails to spawn.
 
@@ -58,7 +57,7 @@ def reconcile(quantity: int, reactive_config: RunnerConfig) -> int:
         logger.info("Will spawn %d new reactive runner process(es)", delta)
         _setup_logging_for_processes()
         for _ in range(delta):
-            _spawn_runner(reactive_config)
+            _spawn_runner(runner_config)
     elif delta < 0:
         logger.info("Will kill %d process(es).", -delta)
         for pid in pids[:-delta]:

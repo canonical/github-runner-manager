@@ -87,7 +87,7 @@ def test_reconcile_spawns_runners(
     """
     _arrange_reactive_processes(secure_run_subprocess_mock, count=2)
 
-    delta = reconcile(5, reactive_config=runner_config)
+    delta = reconcile(5, runner_config=runner_config)
 
     assert delta == 3
     assert subprocess_popen_mock.call_count == 3
@@ -106,7 +106,7 @@ def test_reconcile_does_not_spawn_runners(
     """
     _arrange_reactive_processes(secure_run_subprocess_mock, count=2)
 
-    delta = reconcile(2, reactive_config=runner_config)
+    delta = reconcile(2, runner_config=runner_config)
 
     assert delta == 0
     assert subprocess_popen_mock.call_count == 0
@@ -124,7 +124,7 @@ def test_reconcile_kills_processes_for_too_many_processes(
     assert: 2 processes are killed.
     """
     _arrange_reactive_processes(secure_run_subprocess_mock, count=3)
-    delta = reconcile(1, reactive_config=runner_config)
+    delta = reconcile(1, runner_config=runner_config)
 
     assert delta == -2
     assert subprocess_popen_mock.call_count == 0
@@ -144,7 +144,7 @@ def test_reconcile_ignore_process_not_found_on_kill(
     """
     _arrange_reactive_processes(secure_run_subprocess_mock, count=3)
     os_kill_mock.side_effect = [None, ProcessLookupError]
-    delta = reconcile(1, reactive_config=runner_config)
+    delta = reconcile(1, runner_config=runner_config)
 
     assert delta == -2
     assert subprocess_popen_mock.call_count == 0
@@ -167,7 +167,7 @@ def test_reconcile_raises_reactive_runner_error_on_ps_failure(
     )
 
     with pytest.raises(ReactiveRunnerError) as err:
-        reconcile(1, reactive_config=runner_config)
+        reconcile(1, runner_config=runner_config)
 
     assert "Failed to get list of processes" in str(err.value)
 

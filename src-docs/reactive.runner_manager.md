@@ -17,12 +17,12 @@ Module for managing reactive runners.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/runner_manager.py#L41"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/runner_manager.py#L40"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `reconcile`
 
 ```python
-reconcile(quantity: int, reactive_config: RunnerConfig) → int
+reconcile(quantity: int, runner_config: RunnerConfig) → int
 ```
 
 Spawn a runner reactively. 
@@ -32,7 +32,7 @@ Spawn a runner reactively.
 **Args:**
  
  - <b>`quantity`</b>:  The number of runners to spawn. 
- - <b>`reactive_config`</b>:  The reactive runner configuration. 
+ - <b>`runner_config`</b>:  The reactive runner configuration. 
 
 Raises a ReactiveRunnerError if the runner fails to spawn. 
 
