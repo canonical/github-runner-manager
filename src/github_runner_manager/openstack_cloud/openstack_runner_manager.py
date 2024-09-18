@@ -599,12 +599,15 @@ class OpenStackRunnerManager(CloudRunnerManager):
         return OpenStackRunnerManager._run_health_check(ssh_conn, instance.server_name)
 
     @staticmethod
-    def _run_health_check(ssh_conn: SSHConnection, name: str) -> bool:
+    def _run_health_check(
+        ssh_conn: SSHConnection, name: str, accept_finished_job: bool = False
+    ) -> bool:
         """Run a health check for runner process.
 
         Args:
             ssh_conn: The SSH connection to the runner.
             name: The name of the runner.
+            accept_finished_job: Whether a job that has finished should be marked healthy.
 
         Returns:
             Whether the health succeed.
@@ -614,7 +617,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
             logger.warning("cloud-init status command failed on %s: %s.", name, result.stderr)
             return False
         if CloudInitStatus.DONE in result.stdout:
-            return False
+            return accept_finished_job
         result = ssh_conn.run("ps aux", warn=True)
         if not result.ok:
             logger.warning("SSH run of `ps aux` failed on %s: %s", name, result.stderr)
@@ -645,10 +648,22 @@ class OpenStackRunnerManager(CloudRunnerManager):
                 "not completed"
             ) from err
 
-        result: invoke.runners.Result = ssh_conn.run("ps aux", warn=True)
+        result: invoke.runners.Result = ssh_conn.run("cloud-init status", warn=True)
+        if not result.ok:
+            logger.warning(
+                "cloud-init status command failed on %s: %s.", instance.server_name, result.stderr
+            )
+            raise RunnerStartError(f"Runner startup process not found on {instance.server_name}")
+        # A short running job may have already completed and exited the runner, hence check the
+        # condition via cloud-init status check.
+        if CloudInitStatus.DONE in result.stdout:
+            return
+        result = ssh_conn.run("ps aux", warn=True)
         if not result.ok:
             logger.warning("SSH run of `ps aux` failed on %s", instance.server_name)
             raise RunnerStartError(f"Unable to SSH run `ps aux` on {instance.server_name}")
+        # Runner startup process is the parent process of runner.Listener and runner.Worker which
+        # starts up much faster.
         if RUNNER_STARTUP_PROCESS not in result.stdout:
             logger.warning("Runner startup process not found on %s", instance.server_name)
             raise RunnerStartError(f"Runner startup process not found on {instance.server_name}")
@@ -671,7 +686,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
                 f"Failed to SSH connect to {instance.server_name} openstack runner"
             ) from err
 
-        if not self._run_health_check(ssh_conn=ssh_conn, name=instance.server_name):
+        if not self._run_health_check(
+            ssh_conn=ssh_conn, name=instance.server_name, accept_finished_job=True
+        ):
             logger.info("Runner process not found on %s", instance.server_name)
             raise RunnerStartError(
                 f"Runner process on {instance.server_name} failed to initialize on after starting"
