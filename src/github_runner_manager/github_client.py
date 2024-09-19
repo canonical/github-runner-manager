@@ -21,7 +21,7 @@ from github_runner_manager.types_.github import (
     GitHubOrg,
     GitHubPath,
     GitHubRepo,
-    JobStats,
+    JobInfo,
     RegistrationToken,
     RemoveToken,
     SelfHostedRunner,
@@ -200,8 +200,10 @@ class GithubClient:
                 runner_id=runner_id,
             )
 
-    def get_job_info(self, path: GitHubRepo, workflow_run_id: str, runner_name: str) -> JobStats:
-        """Get information about a job for a specific workflow run.
+    def get_job_info_by_runner_name(
+        self, path: GitHubRepo, workflow_run_id: str, runner_name: str
+    ) -> JobInfo:
+        """Get information about a job for a specific workflow run identified by the runner name.
 
         Args:
             path: GitHub repository path in the format '<owner>/<repo>'.
@@ -209,7 +211,7 @@ class GithubClient:
             runner_name: Name of the runner.
 
         Raises:
-            TokenError: if there was an error with the Github token crdential provided.
+            TokenError: if there was an error with the Github token credential provided.
             JobNotFoundError: If no jobs were found.
 
         Returns:
@@ -227,27 +229,7 @@ class GithubClient:
                     break
                 for job in jobs:
                     if job["runner_name"] == runner_name:
-                        # datetime strings should be in ISO 8601 format,
-                        # but they can also use Z instead of
-                        # +00:00, which is not supported by datetime.fromisoformat
-                        created_at = datetime.fromisoformat(
-                            job["created_at"].replace("Z", "+00:00")
-                        )
-                        started_at = datetime.fromisoformat(
-                            job["started_at"].replace("Z", "+00:00")
-                        )
-                        # conclusion could be null per api schema, so we need to handle that
-                        # though we would assume that it should always be present,
-                        # as the job should be finished
-                        conclusion = job.get("conclusion", None)
-
-                        job_id = job["id"]
-                        return JobStats(
-                            job_id=job_id,
-                            created_at=created_at,
-                            started_at=started_at,
-                            conclusion=conclusion,
-                        )
+                        return self._to_job_info(job)
 
         except HTTPError as exc:
             if exc.code in (401, 403):
@@ -258,3 +240,51 @@ class GithubClient:
             ) from exc
 
         raise JobNotFoundError(f"Could not find job for runner {runner_name}.")
+
+    @catch_http_errors
+    def get_job_info(self, path: GitHubRepo, job_id: str) -> JobInfo:
+        """Get information about a job identified by the job id.
+
+        Args:
+            path: GitHub repository path in the format '<owner>/<repo>'.
+            job_id: The job id.
+
+        Returns:
+            The JSON response from the API.
+        """
+        job_raw = self._client.actions.get_job_for_workflow_run(
+            owner=path.owner,
+            repo=path.repo,
+            job_id=job_id,
+        )
+        return self._to_job_info(job_raw)
+
+    @staticmethod
+    def _to_job_info(job: dict) -> JobInfo:
+        """Convert the job dict to JobInfo.
+
+        Args:
+            job: The job dict.
+
+        Returns:
+            The JobInfo object.
+        """
+        # datetime strings should be in ISO 8601 format,
+        # but they can also use Z instead of
+        # +00:00, which is not supported by datetime.fromisoformat
+        created_at = datetime.fromisoformat(job["created_at"].replace("Z", "+00:00"))
+        started_at = datetime.fromisoformat(job["started_at"].replace("Z", "+00:00"))
+        # conclusion could be null per api schema, so we need to handle that
+        # though we would assume that it should always be present,
+        # as the job should be finished
+        conclusion = job.get("conclusion", None)
+
+        status = job["status"]
+        job_id = job["id"]
+        return JobInfo(
+            job_id=job_id,
+            created_at=created_at,
+            started_at=started_at,
+            conclusion=conclusion,
+            status=status,
+        )

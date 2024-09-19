@@ -11,12 +11,11 @@ import signal
 import subprocess  # nosec
 from pathlib import Path
 
+from github_runner_manager.reactive.types_ import RunnerConfig
 from github_runner_manager.utilities import secure_run_subprocess
 
 logger = logging.getLogger(__name__)
 
-MQ_URI_ENV_VAR = "MQ_URI"
-QUEUE_NAME_ENV_VAR = "QUEUE_NAME"
 REACTIVE_RUNNER_LOG_DIR = Path("/var/log/reactive_runner")
 
 PYTHON_BIN = "/usr/bin/python3"
@@ -31,19 +30,19 @@ PIDS_COMMAND_LINE = [
     "--sort=-start_time",
 ]
 UBUNTU_USER = "ubuntu"
+RUNNER_CONFIG_ENV_VAR = "RUNNER_CONFIG"
 
 
 class ReactiveRunnerError(Exception):
     """Raised when a reactive runner error occurs."""
 
 
-def reconcile(quantity: int, mq_uri: str, queue_name: str) -> int:
+def reconcile(quantity: int, runner_config: RunnerConfig) -> int:
     """Spawn a runner reactively.
 
     Args:
         quantity: The number of runners to spawn.
-        mq_uri: The message queue URI.
-        queue_name: The name of the queue.
+        runner_config: The reactive runner configuration.
 
     Raises a ReactiveRunnerError if the runner fails to spawn.
 
@@ -58,7 +57,7 @@ def reconcile(quantity: int, mq_uri: str, queue_name: str) -> int:
         logger.info("Will spawn %d new reactive runner process(es)", delta)
         _setup_logging_for_processes()
         for _ in range(delta):
-            _spawn_runner(mq_uri=mq_uri, queue_name=queue_name)
+            _spawn_runner(runner_config)
     elif delta < 0:
         logger.info("Will kill %d process(es).", -delta)
         for pid in pids[:-delta]:
@@ -105,17 +104,15 @@ def _setup_logging_for_processes() -> None:
         shutil.chown(REACTIVE_RUNNER_LOG_DIR, user=UBUNTU_USER, group=UBUNTU_USER)
 
 
-def _spawn_runner(mq_uri: str, queue_name: str) -> None:
+def _spawn_runner(runner_config: RunnerConfig) -> None:
     """Spawn a runner.
 
     Args:
-        mq_uri: The message queue URI.
-        queue_name: The name of the queue.
+        runner_config: The runner configuration to pass to the spawned runner process.
     """
     env = {
         "PYTHONPATH": os.environ["PYTHONPATH"],
-        MQ_URI_ENV_VAR: mq_uri,
-        QUEUE_NAME_ENV_VAR: queue_name,
+        RUNNER_CONFIG_ENV_VAR: runner_config.json(),
     }
     # We do not want to wait for the process to finish, so we do not use with statement.
     # We trust the command.

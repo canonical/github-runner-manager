@@ -11,23 +11,6 @@ Package containing modules with type definitions.
 
 <a href="../src/github_runner_manager/types_/__init__.py#L10"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
-## <kbd>class</kbd> `ReactiveConfig`
-Represents the configuration for reactive scheduling. 
-
-
-
-**Attributes:**
- 
- - <b>`mq_uri`</b>:  The URI of the MQ to use to spawn runners reactively. 
-
-
-
-
-
----
-
-<a href="../src/github_runner_manager/types_/__init__.py#L20"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
-
 ## <kbd>class</kbd> `ProxyConfig`
 Proxy configuration. 
 
@@ -52,7 +35,7 @@ Return the aproxy address.
 
 ---
 
-<a href="../src/github_runner_manager/types_/__init__.py#L54"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/__init__.py#L44"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>classmethod</kbd> `check_use_aproxy`
 
@@ -83,7 +66,7 @@ Validate the proxy configuration.
 
 ---
 
-<a href="../src/github_runner_manager/types_/__init__.py#L83"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/__init__.py#L73"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `SSHDebugConnection`
 SSH connection information for debug workflow. 
@@ -103,7 +86,7 @@ SSH connection information for debug workflow.
 
 ---
 
-<a href="../src/github_runner_manager/types_/__init__.py#L99"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/__init__.py#L89"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `RepoPolicyComplianceConfig`
 Configuration for the repo policy compliance service. 

@@ -83,10 +83,12 @@ class RunnerManagerConfig:
     """Configuration for the runner manager.
 
     Attributes:
+        name: A name to identify this manager.
         token: GitHub personal access token to query GitHub API.
         path: Path to GitHub repository or organization to registry the runners.
     """
 
+    name: str
     token: str
     path: GitHubPath
 
@@ -101,18 +103,16 @@ class RunnerManager:
 
     def __init__(
         self,
-        manager_name: str,
         cloud_runner_manager: CloudRunnerManager,
         config: RunnerManagerConfig,
     ):
         """Construct the object.
 
         Args:
-            manager_name: A name to identify this manager.
             cloud_runner_manager: For managing the cloud instance of the runner.
             config: Configuration of this class.
         """
-        self.manager_name = manager_name
+        self.manager_name = config.name
         self._config = config
         self._cloud = cloud_runner_manager
         self.name_prefix = self._cloud.name_prefix
