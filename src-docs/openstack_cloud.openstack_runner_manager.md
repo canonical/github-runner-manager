@@ -162,7 +162,7 @@ The prefix of runner names.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_runner_manager.py#L331"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_runner_manager.py#L354"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `cleanup`
 
@@ -215,7 +215,7 @@ Create a self-hosted runner.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_runner_manager.py#L280"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_runner_manager.py#L289"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `delete_runner`
 
@@ -239,7 +239,7 @@ Delete self-hosted runners.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_runner_manager.py#L306"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_runner_manager.py#L323"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `flush_runners`
 
@@ -262,7 +262,7 @@ Remove idle and/or busy runners.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_runner_manager.py#L226"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_runner_manager.py#L230"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get_runner`
 
@@ -285,7 +285,7 @@ Get a self-hosted runner by instance id.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_runner_manager.py#L248"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_runner_manager.py#L257"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get_runners`
 
