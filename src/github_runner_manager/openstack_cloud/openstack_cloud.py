@@ -148,7 +148,7 @@ class OpenstackCloud:
 
     # Ignore "Too many arguments" as 6 args should be fine. Move to a dataclass if new args are
     # added.
-    def launch_instance(  # pylint: disable=R0913
+    def launch_instance(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self, instance_id: str, image: str, flavor: str, network: str, cloud_init: str
     ) -> OpenstackInstance:
         """Create an OpenStack instance.

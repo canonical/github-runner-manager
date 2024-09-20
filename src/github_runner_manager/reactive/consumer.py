@@ -71,7 +71,10 @@ class JobError(Exception):
 
 
 def consume(
-    queue_config: QueueConfig, runner_manager: RunnerManager, github_client: GithubClient, supported_labels: tuple[str, ...]
+    queue_config: QueueConfig,
+    runner_manager: RunnerManager,
+    github_client: GithubClient,
+    supported_labels: tuple[str, ...],
 ) -> None:
     """Consume a job from the message queue.
 
@@ -82,6 +85,8 @@ def consume(
         queue_config: The configuration for the message queue.
         runner_manager: The runner manager used to create the runner.
         github_client: The GitHub client to use to check the job status.
+        supported_labels: The supported labels for the runner. If the job has unsupported labels,
+            the message is requeued.
 
     Raises:
         JobError: If the job details are invalid.
@@ -100,12 +105,35 @@ def consume(
                     job_details.labels,
                     job_details.job_url,
                 )
-                _spawn_runner(
-                    runner_manager=runner_manager,
-                    job_url=job_details.job_url,
-                    msg=msg,
-                    github_client=github_client,
-                )
+                if not _validate_labels(
+                    labels=job_details.labels, supported_labels=supported_labels
+                ):
+                    logger.error(
+                        "Found unsupported job labels in %s. "
+                        "Will not spawn a runner and requeue the message.",
+                        job_details.labels,
+                    )
+                    msg.reject(requeue=True)
+                else:
+                    _spawn_runner(
+                        runner_manager=runner_manager,
+                        job_url=job_details.job_url,
+                        msg=msg,
+                        github_client=github_client,
+                    )
+
+
+def _validate_labels(labels: tuple[str, ...], supported_labels: tuple[str, ...]) -> bool:
+    """Validate the labels of the job.
+
+    Args:
+        labels: The labels of the job.
+        supported_labels: The supported labels for the runner.
+
+    Returns:
+        True if the labels are valid, False otherwise.
+    """
+    return all(label in supported_labels for label in labels)
 
 
 def _spawn_runner(

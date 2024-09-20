@@ -32,6 +32,7 @@ Log the job details and acknowledge the message. If the job details are invalid,
  - <b>`queue_config`</b>:  The configuration for the message queue. 
  - <b>`runner_manager`</b>:  The runner manager used to create the runner. 
  - <b>`github_client`</b>:  The GitHub client to use to check the job status. 
+ - <b>`supported_labels`</b>:  The supported labels for the runner. If the job has unsupported labels,  the message is requeued. 
 
 
 
@@ -42,7 +43,7 @@ Log the job details and acknowledge the message. If the job details are invalid,
 
 ---
 
-<a href="../reactive/consumer/signal_handler#L184"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../reactive/consumer/signal_handler#L198"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `signal_handler`
 

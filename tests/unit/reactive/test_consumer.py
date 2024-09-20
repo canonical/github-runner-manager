@@ -35,14 +35,15 @@ def mock_sleep_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(consumer, "sleep", lambda _: None)
 
 
-def test_consume(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
+def test_consume(queue_config: QueueConfig):
     """
     arrange: A job placed in the message queue which has not yet been picked up.
     act: Call consume.
     assert: A runner is created and the message is acknowledged.
     """
+    labels = (secrets.token_hex(16), secrets.token_hex(16))
     job_details = consumer.JobDetails(
-        labels=[secrets.token_hex(16), secrets.token_hex(16)],
+        labels=labels,
         job_url=FAKE_JOB_URL,
     )
     _put_in_queue(job_details.json(), queue_config.queue_name)
@@ -58,6 +59,7 @@ def test_consume(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
         queue_config=queue_config,
         runner_manager=runner_manager_mock,
         github_client=github_client_mock,
+        supported_labels=labels,
     )
 
     runner_manager_mock.create_runners.assert_called_once_with(1)
@@ -67,16 +69,15 @@ def test_consume(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
         _consume_from_queue(queue_config.queue_name)
 
 
-def test_consume_reject_if_job_gets_not_picked_up(
-    monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig
-):
+def test_consume_reject_if_job_gets_not_picked_up(queue_config: QueueConfig):
     """
     arrange: A job placed in the message queue which will not get picked up.
     act: Call consume.
     assert: The message is requeued.
     """
+    labels = secrets.token_hex(16), secrets.token_hex(16)
     job_details = consumer.JobDetails(
-        labels=[secrets.token_hex(16), secrets.token_hex(16)],
+        labels=labels,
         job_url=FAKE_JOB_URL,
     )
     _put_in_queue(job_details.json(), queue_config.queue_name)
@@ -89,6 +90,7 @@ def test_consume_reject_if_job_gets_not_picked_up(
         queue_config=queue_config,
         runner_manager=runner_manager_mock,
         github_client=github_client_mock,
+        supported_labels=labels,
     )
 
     # Ensure message has been requeued by reconsuming it
@@ -131,12 +133,45 @@ def test_job_details_validation_error(job_str: str, queue_config: QueueConfig):
             queue_config=queue_config,
             runner_manager=runner_manager_mock,
             github_client=github_client_mock,
+            supported_labels=("label1", "label2"),
         )
     assert "Invalid job details" in str(exc_info.value)
 
     # Ensure message has been requeued by reconsuming it
     msg = _consume_from_queue(queue_name)
     assert msg.payload == job_str
+
+
+def test_consume_reject_if_labels_not_supported(queue_config: QueueConfig):
+    """
+    arrange: A job placed in the message queue which will not get picked up.
+    act: Call consume.
+    assert: The message is requeued.
+    """
+    supported_labels = secrets.token_hex(16), secrets.token_hex(16)
+    unsupported_labels = secrets.token_hex(16), secrets.token_hex(16)
+    labels = supported_labels + unsupported_labels
+
+    job_details = consumer.JobDetails(
+        labels=labels,
+        job_url=FAKE_JOB_URL,
+    )
+    _put_in_queue(job_details.json(), queue_config.queue_name)
+
+    runner_manager_mock = MagicMock(spec=consumer.RunnerManager)
+    github_client_mock = MagicMock(spec=consumer.GithubClient)
+    github_client_mock.get_job_info.return_value = _create_job_info(JobStatus.QUEUED)
+
+    consumer.consume(
+        queue_config=queue_config,
+        runner_manager=runner_manager_mock,
+        github_client=github_client_mock,
+        supported_labels=supported_labels,
+    )
+
+    # Ensure message has been requeued by reconsuming it
+    msg = _consume_from_queue(queue_config.queue_name)
+    assert msg.payload == job_details.json()
 
 
 def _create_job_info(status: JobStatus) -> JobInfo:
