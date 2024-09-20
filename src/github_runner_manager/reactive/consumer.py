@@ -44,7 +44,7 @@ class JobDetails(BaseModel):
         job_url: The URL of the job.
     """
 
-    labels: list[str]
+    labels: tuple[str, ...]
     job_url: HttpUrl
 
     @validator("job_url")
@@ -71,7 +71,7 @@ class JobError(Exception):
 
 
 def consume(
-    queue_config: QueueConfig, runner_manager: RunnerManager, github_client: GithubClient
+    queue_config: QueueConfig, runner_manager: RunnerManager, github_client: GithubClient, supported_labels: tuple[str, ...]
 ) -> None:
     """Consume a job from the message queue.
 
