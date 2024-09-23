@@ -43,7 +43,7 @@ def test_consume(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
     """
     job_details = consumer.JobDetails(
         labels=[secrets.token_hex(16), secrets.token_hex(16)],
-        job_url=FAKE_JOB_URL,
+        url=FAKE_JOB_URL,
     )
     _put_in_queue(job_details.json(), queue_config.queue_name)
 
@@ -77,7 +77,7 @@ def test_consume_reject_if_job_gets_not_picked_up(
     """
     job_details = consumer.JobDetails(
         labels=[secrets.token_hex(16), secrets.token_hex(16)],
-        job_url=FAKE_JOB_URL,
+        url=FAKE_JOB_URL,
     )
     _put_in_queue(job_details.json(), queue_config.queue_name)
 
@@ -100,15 +100,15 @@ def test_consume_reject_if_job_gets_not_picked_up(
     "job_str",
     [
         pytest.param(
-            '{"labels": ["label1", "label2"], "status": "completed"}', id="job_url missing"
+            '{"labels": ["label1", "label2"], "status": "completed"}', id="job url missing"
         ),
         pytest.param(
-            '{"status": "completed", "job_url": "https://example.com/path"}', id="labels missing"
+            '{"status": "completed", "url": "https://example.com/path"}', id="labels missing"
         ),
         pytest.param(
             '{"labels": ["label1", "label2"], "status": "completed", '
-            '"job_url": "https://example.com"}',
-            id="job_url without path",
+            '"url": "https://example.com"}',
+            id="job url without path",
         ),
         pytest.param("no json at all", id="invalid json"),
     ],
