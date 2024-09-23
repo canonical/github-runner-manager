@@ -92,7 +92,7 @@ A class to translate the payload.
 **Attributes:**
  
  - <b>`labels`</b>:  The labels of the job. 
- - <b>`job_url`</b>:  The URL of the job. 
+ - <b>`url`</b>:  The URL of the job to check its status. 
 
 
 

@@ -41,13 +41,13 @@ class JobDetails(BaseModel):
 
     Attributes:
         labels: The labels of the job.
-        job_url: The URL of the job.
+        url: The URL of the job to check its status.
     """
 
     labels: tuple[str, ...]
-    job_url: HttpUrl
+    url: HttpUrl
 
-    @validator("job_url")
+    @validator("url")
     @classmethod
     def check_job_url_path_is_not_empty(cls, v: HttpUrl) -> HttpUrl:
         """Check that the job_url path is not empty.
@@ -103,7 +103,7 @@ def consume(
                 logger.info(
                     "Received job with labels %s and job_url %s",
                     job_details.labels,
-                    job_details.job_url,
+                    job_details.url,
                 )
                 if not _validate_labels(
                     labels=job_details.labels, supported_labels=supported_labels
@@ -117,7 +117,7 @@ def consume(
                 else:
                     _spawn_runner(
                         runner_manager=runner_manager,
-                        job_url=job_details.job_url,
+                        job_url=job_details.url,
                         msg=msg,
                         github_client=github_client,
                     )
