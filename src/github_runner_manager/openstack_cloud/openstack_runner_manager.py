@@ -582,7 +582,8 @@ class OpenStackRunnerManager(CloudRunnerManager):
             # kill both Runner.Listener and Runner.Worker processes.
             # This kills pre-job.sh, a child process of Runner.Worker.
             kill_command = (
-                f"pgrep -x {RUNNER_LISTENER_PROCESS} && kill $(pgrep -x {RUNNER_LISTENER_PROCESS});"
+                f"pgrep -x {RUNNER_LISTENER_PROCESS} && "
+                f"kill $(pgrep -x {RUNNER_LISTENER_PROCESS});"
                 f"pgrep -x {RUNNER_WORKER_PROCESS} && kill $(pgrep -x {RUNNER_WORKER_PROCESS});"
             )
         else:
