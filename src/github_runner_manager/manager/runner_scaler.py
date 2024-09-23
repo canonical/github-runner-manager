@@ -7,8 +7,6 @@ import logging
 import time
 from dataclasses import dataclass
 
-from pydantic import MongoDsn
-
 import github_runner_manager.reactive.runner_manager as reactive_runner_manager
 from github_runner_manager.errors import IssueMetricEventError, MissingServerConfigError
 from github_runner_manager.manager.cloud_runner_manager import HealthState
@@ -20,7 +18,7 @@ from github_runner_manager.manager.runner_manager import (
     RunnerManager,
 )
 from github_runner_manager.metrics import events as metric_events
-from github_runner_manager.types_ import ReactiveConfig
+from github_runner_manager.reactive.types_ import RunnerConfig as ReactiveRunnerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -49,15 +47,17 @@ class RunnerInfo:
 class RunnerScaler:
     """Manage the reconcile of runners."""
 
-    def __init__(self, runner_manager: RunnerManager, reactive_config: ReactiveConfig | None):
+    def __init__(
+        self, runner_manager: RunnerManager, reactive_runner_config: ReactiveRunnerConfig | None
+    ):
         """Construct the object.
 
         Args:
             runner_manager: The RunnerManager to perform runner reconcile.
-            reactive_config: Reactive runner configuration.
+            reactive_runner_config: Reactive runner configuration.
         """
         self._manager = runner_manager
-        self._reactive_config = reactive_config
+        self._reactive_config = reactive_runner_config
 
     def get_runner_info(self) -> RunnerInfo:
         """Get information on the runners.
@@ -126,7 +126,7 @@ class RunnerScaler:
 
         if self._reactive_config is not None:
             logger.info("Reactive configuration detected, going into experimental reactive mode.")
-            return self._reconcile_reactive(quantity, self._reactive_config.mq_uri)
+            return self._reconcile_reactive(quantity)
 
         metric_stats = {}
         start_timestamp = time.time()
@@ -249,20 +249,19 @@ class RunnerScaler:
         except IssueMetricEventError:
             logger.exception("Failed to issue Reconciliation metric")
 
-    def _reconcile_reactive(self, quantity: int, mq_uri: MongoDsn) -> int:
+    def _reconcile_reactive(self, quantity: int) -> int:
         """Reconcile runners reactively.
 
         Args:
             quantity: Number of intended runners.
-            mq_uri: The URI of the MQ to use to spawn runners reactively.
 
         Returns:
             The difference between intended runners and actual runners. In reactive mode
             this number is never negative as additional processes should terminate after a timeout.
         """
         logger.info("Reactive mode is experimental and not yet fully implemented.")
+        self._manager.cleanup()
         return reactive_runner_manager.reconcile(
             quantity=quantity,
-            mq_uri=mq_uri,
-            queue_name=self._manager.manager_name,
+            runner_config=self._reactive_config,
         )
