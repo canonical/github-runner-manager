@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Iterator, Sequence
 
+import fabric
 import invoke
 import jinja2
 import paramiko
@@ -582,10 +583,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
             # kill both Runner.Listener and Runner.Worker processes.
             # This kills pre-job.sh, a child process of Runner.Worker.
             kill_command = (
-                f"pgrep -x {RUNNER_LISTENER_PROCESS} "
-                f"&& kill $(pgrep -x {RUNNER_LISTENER_PROCESS});"
-                f"pgrep -x {RUNNER_WORKER_PROCESS} "
-                f"&& kill $(pgrep -x {RUNNER_WORKER_PROCESS});"
+                f"pgrep -x {RUNNER_LISTENER_PROCESS} && "
+                f"kill $(pgrep -x {RUNNER_LISTENER_PROCESS});"
+                f"pgrep -x {RUNNER_WORKER_PROCESS} && kill $(pgrep -x {RUNNER_WORKER_PROCESS});"
             )
         else:
             logger.info(
@@ -593,11 +593,19 @@ class OpenStackRunnerManager(CloudRunnerManager):
             )
             # Only kill Runner.Listener if Runner.Worker does not exist.
             kill_command = (
-                f"pgrep -x {RUNNER_WORKER_PROCESS} || pgrep -x {RUNNER_LISTENER_PROCESS} && "
+                f"! pgrep -x {RUNNER_WORKER_PROCESS} && pgrep -x {RUNNER_LISTENER_PROCESS} && "
                 f"kill $(pgrep -x {RUNNER_LISTENER_PROCESS})"
             )
+        logger.info("Running kill process command: %s", kill_command)
         # Checking the result of kill command is not useful, as the exit code does not reveal much.
-        ssh_conn.run(kill_command, warn=True, timeout=30)
+        result: fabric.Result = ssh_conn.run(kill_command, warn=True, timeout=30)
+        logger.info(
+            "Kill process command output, ok: %s code %s, out: %s, err: %s",
+            result.ok,
+            result.return_code,
+            result.stdout,
+            result.stderr,
+        )
 
     @retry(tries=3, delay=5, backoff=2, local_logger=logger)
     def _health_check(self, instance: OpenstackInstance) -> bool:
