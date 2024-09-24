@@ -12,7 +12,7 @@ import pytest
 from kombu import Connection, Message
 
 from github_runner_manager.reactive import consumer
-from github_runner_manager.reactive.consumer import JobError, Labels
+from github_runner_manager.reactive.consumer import JobError, Labels, IgnoredLabels
 from github_runner_manager.reactive.types_ import QueueConfig
 from github_runner_manager.types_.github import JobConclusion, JobInfo, JobStatus
 
@@ -41,6 +41,7 @@ def mock_sleep_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
         pytest.param({"label1", "label2"}, {"label1", "label2"}, id="label==supported_labels"),
         pytest.param(set(), {"label1", "label2"}, id="empty labels"),
         pytest.param({"label1"}, {"label1", "label3"}, id="labels subset of supported_labels"),
+        pytest.param({"label1"} | IgnoredLabels, {"label1", "label2"}, id="labels with ignored labels"),
     ],
 )
 def test_consume(labels: Labels, supported_labels: Labels, queue_config: QueueConfig):

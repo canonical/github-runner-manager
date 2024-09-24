@@ -24,6 +24,8 @@ from github_runner_manager.types_.github import GitHubRepo
 logger = logging.getLogger(__name__)
 
 Labels = set[str]
+IgnoredLabels = frozenset({"self-hosted", "linux"}) # These labels should be ignored.
+
 
 
 class JobPickedUpStates(str, Enum):
@@ -135,7 +137,7 @@ def _validate_labels(labels: Labels, supported_labels: Labels) -> bool:
     Returns:
         True if the labels are valid, False otherwise.
     """
-    return labels <= supported_labels
+    return (labels - IgnoredLabels) <= supported_labels
 
 
 def _spawn_runner(
