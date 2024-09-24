@@ -12,7 +12,7 @@ import pytest
 from kombu import Connection, Message
 
 from github_runner_manager.reactive import consumer
-from github_runner_manager.reactive.consumer import JobError
+from github_runner_manager.reactive.consumer import JobError, Labels
 from github_runner_manager.reactive.types_ import QueueConfig
 from github_runner_manager.types_.github import JobConclusion, JobInfo, JobStatus
 
@@ -35,13 +35,20 @@ def mock_sleep_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(consumer, "sleep", lambda _: None)
 
 
-def test_consume(queue_config: QueueConfig):
+@pytest.mark.parametrize(
+    "labels,supported_labels",
+    [
+        pytest.param({"label1", "label2"}, {"label1", "label2"}, id="label==supported_labels"),
+        pytest.param(set(), {"label1", "label2"}, id="empty labels"),
+        pytest.param({"label1"}, {"label1", "label3"}, id="labels subset of supported_labels"),
+    ],
+)
+def test_consume(labels: Labels, supported_labels: Labels, queue_config: QueueConfig):
     """
-    arrange: A job placed in the message queue which has not yet been picked up.
+    arrange: A job with valid labels placed in the message queue which has not yet been picked up.
     act: Call consume.
     assert: A runner is created and the message is acknowledged.
     """
-    labels = (secrets.token_hex(16), secrets.token_hex(16))
     job_details = consumer.JobDetails(
         labels=labels,
         url=FAKE_JOB_URL,
@@ -59,7 +66,7 @@ def test_consume(queue_config: QueueConfig):
         queue_config=queue_config,
         runner_manager=runner_manager_mock,
         github_client=github_client_mock,
-        supported_labels=labels,
+        supported_labels=supported_labels,
     )
 
     runner_manager_mock.create_runners.assert_called_once_with(1)
@@ -75,7 +82,7 @@ def test_consume_reject_if_job_gets_not_picked_up(queue_config: QueueConfig):
     act: Call consume.
     assert: The message is requeued.
     """
-    labels = secrets.token_hex(16), secrets.token_hex(16)
+    labels = {secrets.token_hex(16), secrets.token_hex(16)}
     job_details = consumer.JobDetails(
         labels=labels,
         url=FAKE_JOB_URL,
@@ -133,7 +140,7 @@ def test_job_details_validation_error(job_str: str, queue_config: QueueConfig):
             queue_config=queue_config,
             runner_manager=runner_manager_mock,
             github_client=github_client_mock,
-            supported_labels=("label1", "label2"),
+            supported_labels={"label1", "label2"},
         )
     assert "Invalid job details" in str(exc_info.value)
 
@@ -142,16 +149,23 @@ def test_job_details_validation_error(job_str: str, queue_config: QueueConfig):
     assert msg.payload == job_str
 
 
-def test_consume_reject_if_labels_not_supported(queue_config: QueueConfig):
+@pytest.mark.parametrize(
+    "labels,supported_labels",
+    [
+        pytest.param({"label1", "unsupported"}, {"label1"}, id="additional unsupported label"),
+        pytest.param({"label1"}, set(), id="empty supported labels"),
+        pytest.param({"label1", "label2"}, {"label1", "label3"}, id="overlapping labels"),
+        pytest.param({"label1", "label2"}, {"label3", "label4"}, id="no overlap"),
+    ],
+)
+def test_consume_reject_if_labels_not_supported(
+    labels: Labels, supported_labels: Labels, queue_config: QueueConfig
+):
     """
-    arrange: A job placed in the message queue which will not get picked up.
+    arrange: A job placed in the message queue with unsupported labels.
     act: Call consume.
     assert: The message is requeued.
     """
-    supported_labels = secrets.token_hex(16), secrets.token_hex(16)
-    unsupported_labels = secrets.token_hex(16), secrets.token_hex(16)
-    labels = supported_labels + unsupported_labels
-
     job_details = consumer.JobDetails(
         labels=labels,
         url=FAKE_JOB_URL,

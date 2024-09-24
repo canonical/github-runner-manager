@@ -38,4 +38,4 @@ class RunnerConfig(BaseModel):
     runner_manager: RunnerManagerConfig
     cloud_runner_manager: OpenStackRunnerManagerConfig
     github_token: str
-    supported_labels: tuple[str, ...]
+    supported_labels: set[str]

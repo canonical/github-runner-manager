@@ -23,6 +23,8 @@ from github_runner_manager.types_.github import GitHubRepo
 
 logger = logging.getLogger(__name__)
 
+Labels = set[str]
+
 
 class JobPickedUpStates(str, Enum):
     """The states of a job that indicate it has been picked up.
@@ -44,7 +46,7 @@ class JobDetails(BaseModel):
         url: The URL of the job to check its status.
     """
 
-    labels: tuple[str, ...]
+    labels: Labels
     url: HttpUrl
 
     @validator("url")
@@ -74,7 +76,7 @@ def consume(
     queue_config: QueueConfig,
     runner_manager: RunnerManager,
     github_client: GithubClient,
-    supported_labels: tuple[str, ...],
+    supported_labels: Labels,
 ) -> None:
     """Consume a job from the message queue.
 
@@ -123,7 +125,7 @@ def consume(
                     )
 
 
-def _validate_labels(labels: tuple[str, ...], supported_labels: tuple[str, ...]) -> bool:
+def _validate_labels(labels: Labels, supported_labels: Labels) -> bool:
     """Validate the labels of the job.
 
     Args:
@@ -133,7 +135,7 @@ def _validate_labels(labels: tuple[str, ...], supported_labels: tuple[str, ...])
     Returns:
         True if the labels are valid, False otherwise.
     """
-    return all(label in supported_labels for label in labels)
+    return labels <= supported_labels
 
 
 def _spawn_runner(
