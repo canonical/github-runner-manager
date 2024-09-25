@@ -135,7 +135,7 @@ def _validate_labels(labels: Labels, supported_labels: Labels) -> bool:
     Returns:
         True if the labels are valid, False otherwise.
     """
-    return labels <= supported_labels
+    return {label.lower() for label in labels} <= {label.lower() for label in supported_labels}
 
 
 def _spawn_runner(

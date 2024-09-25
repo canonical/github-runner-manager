@@ -41,6 +41,7 @@ def mock_sleep_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
         pytest.param({"label1", "label2"}, {"label1", "label2"}, id="label==supported_labels"),
         pytest.param(set(), {"label1", "label2"}, id="empty labels"),
         pytest.param({"label1"}, {"label1", "label3"}, id="labels subset of supported_labels"),
+        pytest.param({"LaBeL1", "label2"}, {"label1", "laBeL2"}, id="case insensitive labels"),
     ],
 )
 def test_consume(labels: Labels, supported_labels: Labels, queue_config: QueueConfig):
@@ -156,6 +157,7 @@ def test_job_details_validation_error(job_str: str, queue_config: QueueConfig):
         pytest.param({"label1"}, set(), id="empty supported labels"),
         pytest.param({"label1", "label2"}, {"label1", "label3"}, id="overlapping labels"),
         pytest.param({"label1", "label2"}, {"label3", "label4"}, id="no overlap"),
+        pytest.param({"LaBeL1", "label2"}, {"label1", "laBeL3"}, id="case insensitive labels"),
     ],
 )
 def test_consume_reject_if_labels_not_supported(
@@ -174,7 +176,10 @@ def test_consume_reject_if_labels_not_supported(
 
     runner_manager_mock = MagicMock(spec=consumer.RunnerManager)
     github_client_mock = MagicMock(spec=consumer.GithubClient)
-    github_client_mock.get_job_info.return_value = _create_job_info(JobStatus.QUEUED)
+    github_client_mock.get_job_info.side_effect = [
+        _create_job_info(JobStatus.QUEUED),
+        _create_job_info(JobStatus.IN_PROGRESS),
+    ]
 
     consumer.consume(
         queue_config=queue_config,
