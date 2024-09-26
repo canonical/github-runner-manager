@@ -1,140 +1,64 @@
 #  Copyright 2024 Canonical Ltd.
 #  See LICENSE file for licensing details.
 
-"""Module for managing reactive runners."""
+"""Module for reconciling amount of runner and reactive runner processes."""
 import logging
-import os
-import shutil
-import signal
 
-# All commands run by subprocess are secure.
-import subprocess  # nosec
-from pathlib import Path
-
+from github_runner_manager.manager.runner_manager import RunnerManager
+from github_runner_manager.reactive import process_manager
 from github_runner_manager.reactive.types_ import RunnerConfig
-from github_runner_manager.utilities import secure_run_subprocess
 
 logger = logging.getLogger(__name__)
 
-REACTIVE_RUNNER_LOG_DIR = Path("/var/log/reactive_runner")
 
-PYTHON_BIN = "/usr/bin/python3"
-REACTIVE_RUNNER_SCRIPT_MODULE = "github_runner_manager.reactive.runner"
-REACTIVE_RUNNER_CMD_LINE_PREFIX = f"{PYTHON_BIN} -m {REACTIVE_RUNNER_SCRIPT_MODULE}"
-PID_CMD_COLUMN_WIDTH = len(REACTIVE_RUNNER_CMD_LINE_PREFIX)
-PIDS_COMMAND_LINE = [
-    "ps",
-    "axo",
-    f"cmd:{PID_CMD_COLUMN_WIDTH},pid",
-    "--no-headers",
-    "--sort=-start_time",
-]
-UBUNTU_USER = "ubuntu"
-RUNNER_CONFIG_ENV_VAR = "RUNNER_CONFIG"
+def reconcile(quantity: int, runner_manager: RunnerManager, runner_config: RunnerConfig) -> int:
+    """Reconcile runners reactively.
 
+    The reconciliation attempts to make the following equation true:
+        quantity_of_current_runners + reactive_processes_consuming_jobs == quantity.
 
-class ReactiveRunnerError(Exception):
-    """Raised when a reactive runner error occurs."""
+    A few examples:
 
-
-def reconcile(quantity: int, runner_config: RunnerConfig) -> int:
-    """Spawn a runner reactively.
-
-    Args:
-        quantity: The number of runners to spawn.
-        runner_config: The reactive runner configuration.
-
-    Raises a ReactiveRunnerError if the runner fails to spawn.
-
-    Returns:
-        The number of reactive runner processes spawned.
-    """
-    pids = _get_pids()
-    current_quantity = len(pids)
-    logger.info("Current quantity of reactive runner processes: %s", current_quantity)
-    delta = quantity - current_quantity
-    if delta > 0:
-        logger.info("Will spawn %d new reactive runner process(es)", delta)
-        _setup_logging_for_processes()
-        for _ in range(delta):
-            _spawn_runner(runner_config)
-    elif delta < 0:
-        logger.info("Will kill %d process(es).", -delta)
-        for pid in pids[:-delta]:
-            logger.info("Killing reactive runner process with pid %s", pid)
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except ProcessLookupError:
-                # There can be a race condition that the process has already terminated.
-                # We just ignore and log the fact.
-                logger.info(
-                    "Failed to kill process with pid %s. Process might have terminated it self.",
-                    pid,
-                )
-    else:
-        logger.info("No changes to number of reactive runner processes needed.")
-
-    return delta
+    1. If there are 5 runners and 5 reactive processes and the quantity is 10,
+        no action is taken.
+    2. If there are 5 runners and 5 reactive processes and the quantity is 15,
+        5 reactive processes are created.
+    3. If there are 5 runners and 5 reactive processes and quantity is 7,
+        3 reactive processes are killed.
+    4. If there are 5 runners and 5 reactive processes and quantity is 5,
+        all reactive processes are killed.
+    5. If there are 5 runners and 5 reactive processes and quantity is 4,
+        1 runner is killed and all reactive processes are killed.
 
 
-def _get_pids() -> list[int]:
-    """Get the PIDs of the reactive runners processes.
+    So if the quantity is equal to the sum of the current runners and reactive processes,
+    no action is taken,
 
-    Returns:
-        The PIDs of the reactive runner processes sorted by start time in descending order.
+    If the quantity is greater than the sum of the current
+    runners and reactive processes, additional reactive processes are created.
 
-    Raises:
-        ReactiveRunnerError: If the command to get the PIDs fails
-    """
-    result = secure_run_subprocess(cmd=PIDS_COMMAND_LINE)
-    if result.returncode != 0:
-        raise ReactiveRunnerError("Failed to get list of processes")
+    If the quantity is greater than or equal to the quantity of the current runners,
+    but less than the sum of the current runners and reactive processes,
+    additional reactive processes will be killed.
 
-    return [
-        int(line.rstrip().rsplit(maxsplit=1)[-1])
-        for line in result.stdout.decode().split("\n")
-        if line.startswith(REACTIVE_RUNNER_CMD_LINE_PREFIX)
-    ]
+    If the quantity is less than the sum of the current runners,
+    additional runners are killed and all reactive processes are killed.
 
-
-def _setup_logging_for_processes() -> None:
-    """Set up the log dir."""
-    if not REACTIVE_RUNNER_LOG_DIR.exists():
-        REACTIVE_RUNNER_LOG_DIR.mkdir()
-        shutil.chown(REACTIVE_RUNNER_LOG_DIR, user=UBUNTU_USER, group=UBUNTU_USER)
-
-
-def _spawn_runner(runner_config: RunnerConfig) -> None:
-    """Spawn a runner.
+    In addition to this behaviour, reconciliation also checks the queue at the start and
+    removes all idle runners if the queue is empty, to ensure that
+    no idle runners are left behind if there are no new jobs.
 
     Args:
-        runner_config: The runner configuration to pass to the spawned runner process.
-    """
-    env = {
-        "PYTHONPATH": os.environ["PYTHONPATH"],
-        RUNNER_CONFIG_ENV_VAR: runner_config.json(),
-    }
-    # We do not want to wait for the process to finish, so we do not use with statement.
-    # We trust the command.
-    command = " ".join(
-        [
-            PYTHON_BIN,
-            "-m",
-            REACTIVE_RUNNER_SCRIPT_MODULE,
-            ">>",
-            # $$ will be replaced by the PID of the process, so we can track the error log easily.
-            f"{REACTIVE_RUNNER_LOG_DIR}/$$.log",
-            "2>&1",
-        ]
-    )
-    logger.debug("Spawning a new reactive runner process with command: %s", command)
-    process = subprocess.Popen(  # pylint: disable=consider-using-with  # nosec
-        command,
-        shell=True,
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        user=UBUNTU_USER,
-    )
+        quantity: Number of intended amount of runners + reactive processes.
+        runner_manager: The runner manager to interact with current running runners.
+        runner_config: The reactive runner config.
 
-    logger.info("Spawned a new reactive runner process with pid %s", process.pid)
+    Returns:
+        The number of reactive processes created. If negative, its absolute value is equal
+        to the number of processes killed.
+    """
+    runner_manager.cleanup()
+    return process_manager.reconcile(
+        quantity=quantity,
+        runner_config=runner_config,
+    )
