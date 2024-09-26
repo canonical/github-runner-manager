@@ -70,6 +70,17 @@ class JobError(Exception):
     """Raised when a job error occurs."""
 
 
+def get_queue_size(queue_config: QueueConfig) -> int:
+    """Get the size of the queue.
+
+    Args:
+        queue_config: The configuration for the message queue.
+
+    Returns:
+        The size of the queue.
+    """
+
+
 def consume(
     queue_config: QueueConfig, runner_manager: RunnerManager, github_client: GithubClient
 ) -> None:

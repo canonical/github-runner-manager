@@ -10,6 +10,30 @@ Module responsible for consuming jobs from the message queue.
 
 <a href="../src/github_runner_manager/reactive/consumer.py#L73"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
+## <kbd>function</kbd> `get_queue_size`
+
+```python
+get_queue_size(queue_config: QueueConfig) → int
+```
+
+Get the size of the queue. 
+
+
+
+**Args:**
+ 
+ - <b>`queue_config`</b>:  The configuration for the message queue. 
+
+
+
+**Returns:**
+ The size of the queue. 
+
+
+---
+
+<a href="../src/github_runner_manager/reactive/consumer.py#L84"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+
 ## <kbd>function</kbd> `consume`
 
 ```python
@@ -41,7 +65,7 @@ Log the job details and acknowledge the message. If the job details are invalid,
 
 ---
 
-<a href="../reactive/consumer/signal_handler#L170"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../reactive/consumer/signal_handler#L181"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `signal_handler`
 
