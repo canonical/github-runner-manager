@@ -4,8 +4,9 @@
 """Module for reconciling amount of runner and reactive runner processes."""
 import logging
 
-from github_runner_manager.manager.runner_manager import RunnerManager
+from github_runner_manager.manager.runner_manager import FlushMode, RunnerManager
 from github_runner_manager.reactive import process_manager
+from github_runner_manager.reactive.consumer import get_queue_size
 from github_runner_manager.reactive.types_ import RunnerConfig
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,8 @@ def reconcile(quantity: int, runner_manager: RunnerManager, runner_config: Runne
         to the number of processes killed.
     """
     runner_manager.cleanup()
+    if get_queue_size(runner_config.queue) == 0:
+        runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
     return process_manager.reconcile(
         quantity=quantity,
         runner_config=runner_config,
