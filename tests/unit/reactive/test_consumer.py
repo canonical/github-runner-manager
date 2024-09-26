@@ -10,9 +10,10 @@ from unittest.mock import MagicMock
 
 import pytest
 from kombu import Connection, Message
+from kombu.exceptions import KombuError
 
 from github_runner_manager.reactive import consumer
-from github_runner_manager.reactive.consumer import JobError
+from github_runner_manager.reactive.consumer import JobError, get_queue_size
 from github_runner_manager.reactive.types_ import QueueConfig
 from github_runner_manager.types_.github import JobConclusion, JobInfo, JobStatus
 
@@ -35,7 +36,7 @@ def mock_sleep_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(consumer, "sleep", lambda _: None)
 
 
-def test_consume(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
+def test_consume(queue_config: QueueConfig):
     """
     arrange: A job placed in the message queue which has not yet been picked up.
     act: Call consume.
@@ -67,9 +68,7 @@ def test_consume(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
         _consume_from_queue(queue_config.queue_name)
 
 
-def test_consume_reject_if_job_gets_not_picked_up(
-    monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig
-):
+def test_consume_reject_if_job_gets_not_picked_up(queue_config: QueueConfig):
     """
     arrange: A job placed in the message queue which will not get picked up.
     act: Call consume.
@@ -94,6 +93,55 @@ def test_consume_reject_if_job_gets_not_picked_up(
     # Ensure message has been requeued by reconsuming it
     msg = _consume_from_queue(queue_config.queue_name)
     assert msg.payload == job_details.json()
+
+
+def test_consume_raises_queue_error(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
+    """
+    arrange: A mocked SimpleQueue that raises a KombuError.
+    act: Call consume.
+    assert: A QueueError is raised.
+    """
+    monkeypatch.setattr(consumer, "SimpleQueue", MagicMock(side_effect=KombuError))
+    with pytest.raises(consumer.QueueError) as exc_info:
+        consumer.consume(
+            queue_config=queue_config,
+            runner_manager=MagicMock(spec=consumer.RunnerManager),
+            github_client=MagicMock(spec=consumer.GithubClient),
+        )
+    assert "Error when communicating with the queue" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "size",
+    [
+        pytest.param(0, id="empty queue"),
+        pytest.param(1, id="queue with 1 item"),
+        pytest.param(randint(2, 10), id="queue with multiple items"),
+    ],
+)
+def test_get_queue_size(size: int, queue_config: QueueConfig):
+    """
+    arrange: A queue with a given size.
+    act: Call get_queue_size.
+    assert: The size of the queue is returned.
+    """
+    for _ in range(size):
+        _put_in_queue("test", queue_config.queue_name)
+    assert get_queue_size(queue_config) == size
+
+
+def test_get_queue_size_raises_queue_error(
+    monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig
+):
+    """
+    arrange: A queue with a given size and a mocked SimpleQueue that raises a KombuError.
+    act: Call get_queue_size.
+    assert: A QueueError is raised.
+    """
+    monkeypatch.setattr(consumer, "SimpleQueue", MagicMock(side_effect=KombuError))
+    with pytest.raises(consumer.QueueError) as exc_info:
+        get_queue_size(queue_config)
+    assert "Error when communicating with the queue" in str(exc_info.value)
 
 
 @pytest.mark.parametrize(

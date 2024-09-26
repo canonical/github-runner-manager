@@ -8,7 +8,7 @@ Module responsible for consuming jobs from the message queue.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/consumer.py#L73"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/consumer.py#L78"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `get_queue_size`
 
@@ -16,7 +16,7 @@ Module responsible for consuming jobs from the message queue.
 get_queue_size(queue_config: QueueConfig) → int
 ```
 
-Get the size of the queue. 
+Get the size of the message queue. 
 
 
 
@@ -30,9 +30,15 @@ Get the size of the queue.
  The size of the queue. 
 
 
+
+**Raises:**
+ 
+ - <b>`QueueError`</b>:  If an error when communicating with the queue occurs. 
+
+
 ---
 
-<a href="../src/github_runner_manager/reactive/consumer.py#L84"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/consumer.py#L98"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `consume`
 
@@ -61,11 +67,12 @@ Log the job details and acknowledge the message. If the job details are invalid,
 **Raises:**
  
  - <b>`JobError`</b>:  If the job details are invalid. 
+ - <b>`QueueError`</b>:  If an error when communicating with the queue occurs. 
 
 
 ---
 
-<a href="../reactive/consumer/signal_handler#L181"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../reactive/consumer/signal_handler#L199"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `signal_handler`
 
@@ -86,7 +93,7 @@ The signal handler exits the process.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/consumer.py#L27"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/consumer.py#L28"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `JobPickedUpStates`
 The states of a job that indicate it has been picked up. 
@@ -104,7 +111,7 @@ The states of a job that indicate it has been picked up.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/consumer.py#L39"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/consumer.py#L40"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `JobDetails`
 A class to translate the payload. 
@@ -121,7 +128,7 @@ A class to translate the payload.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/consumer.py#L50"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/consumer.py#L51"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>classmethod</kbd> `check_job_url_path_is_not_empty`
 
@@ -151,10 +158,21 @@ Check that the job_url path is not empty.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/consumer.py#L69"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/consumer.py#L70"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `JobError`
 Raised when a job error occurs. 
+
+
+
+
+
+---
+
+<a href="../src/github_runner_manager/reactive/consumer.py#L74"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+
+## <kbd>class</kbd> `QueueError`
+Raised when an error when communicating with the queue occurs. 
 
 
 

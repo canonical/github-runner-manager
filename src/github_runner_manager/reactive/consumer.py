@@ -13,6 +13,7 @@ from types import FrameType
 from typing import Generator, cast
 
 from kombu import Connection, Message
+from kombu.exceptions import KombuError
 from kombu.simple import SimpleQueue
 from pydantic import BaseModel, HttpUrl, ValidationError, validator
 
@@ -70,15 +71,28 @@ class JobError(Exception):
     """Raised when a job error occurs."""
 
 
+class QueueError(Exception):
+    """Raised when an error when communicating with the queue occurs."""
+
+
 def get_queue_size(queue_config: QueueConfig) -> int:
-    """Get the size of the queue.
+    """Get the size of the message queue.
 
     Args:
         queue_config: The configuration for the message queue.
 
     Returns:
         The size of the queue.
+
+    Raises:
+        QueueError: If an error when communicating with the queue occurs.
     """
+    try:
+        with Connection(queue_config.mongodb_uri) as conn:
+            with closing(SimpleQueue(conn, queue_config.queue_name)) as simple_queue:
+                return simple_queue.qsize()
+    except KombuError as exc:
+        raise QueueError("Error when communicating with the queue") from exc
 
 
 def consume(
@@ -96,27 +110,31 @@ def consume(
 
     Raises:
         JobError: If the job details are invalid.
+        QueueError: If an error when communicating with the queue occurs.
     """
-    with Connection(queue_config.mongodb_uri) as conn:
-        with closing(SimpleQueue(conn, queue_config.queue_name)) as simple_queue:
-            with signal_handler(signal.SIGTERM):
-                msg = simple_queue.get(block=True)
-                try:
-                    job_details = cast(JobDetails, JobDetails.parse_raw(msg.payload))
-                except ValidationError as exc:
-                    msg.reject(requeue=True)
-                    raise JobError(f"Invalid job details: {msg.payload}") from exc
-                logger.info(
-                    "Received job with labels %s and job_url %s",
-                    job_details.labels,
-                    job_details.url,
-                )
-                _spawn_runner(
-                    runner_manager=runner_manager,
-                    job_url=job_details.url,
-                    msg=msg,
-                    github_client=github_client,
-                )
+    try:
+        with Connection(queue_config.mongodb_uri) as conn:
+            with closing(SimpleQueue(conn, queue_config.queue_name)) as simple_queue:
+                with signal_handler(signal.SIGTERM):
+                    msg = simple_queue.get(block=True)
+                    try:
+                        job_details = cast(JobDetails, JobDetails.parse_raw(msg.payload))
+                    except ValidationError as exc:
+                        msg.reject(requeue=True)
+                        raise JobError(f"Invalid job details: {msg.payload}") from exc
+                    logger.info(
+                        "Received job with labels %s and job_url %s",
+                        job_details.labels,
+                        job_details.url,
+                    )
+                    _spawn_runner(
+                        runner_manager=runner_manager,
+                        job_url=job_details.url,
+                        msg=msg,
+                        github_client=github_client,
+                    )
+    except KombuError as exc:
+        raise QueueError("Error when communicating with the queue") from exc
 
 
 def _spawn_runner(
