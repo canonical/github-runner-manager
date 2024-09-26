@@ -61,7 +61,17 @@ def reconcile(quantity: int, runner_manager: RunnerManager, runner_config: Runne
     runner_manager.cleanup()
     if get_queue_size(runner_config.queue) == 0:
         runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
+
+    runners = runner_manager.get_runners()
+    runner_diff = quantity - len(runners)
+
+    if runner_diff >= 0:
+        process_quantity = runner_diff
+    else:
+        runner_manager.delete_runners(-runner_diff)
+        process_quantity = 0
+
     return process_manager.reconcile(
-        quantity=quantity,
+        quantity=process_quantity,
         runner_config=runner_config,
     )
