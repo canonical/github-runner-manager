@@ -269,14 +269,12 @@ class GithubClient:
         Returns:
             The JobInfo object.
         """
-        # datetime strings should be in ISO 8601 format,
-        # but they can also use Z instead of
-        # +00:00, which is not supported by datetime.fromisoformat
+        # datetime strings should be in ISO 8601 format, but they can also use Z instead of +00:00,
+        # which is not supported by datetime.fromisoformat
         created_at = datetime.fromisoformat(job["created_at"].replace("Z", "+00:00"))
         started_at = datetime.fromisoformat(job["started_at"].replace("Z", "+00:00"))
-        # conclusion could be null per api schema, so we need to handle that
-        # though we would assume that it should always be present,
-        # as the job should be finished
+        # conclusion could be null per api schema, so we need to handle that,
+        # though we would assume that it should always be present, as the job should be finished.
         conclusion = job.get("conclusion", None)
 
         status = job["status"]

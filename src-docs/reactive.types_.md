@@ -40,6 +40,7 @@ The configuration for the reactive runner to spawn.
  - <b>`runner_manager`</b>:  The runner manager configuration. 
  - <b>`cloud_runner_manager`</b>:  The OpenStack runner manager configuration. 
  - <b>`github_token`</b>:  str 
+ - <b>`supported_labels`</b>:  The supported labels for the runner. 
 
 
 

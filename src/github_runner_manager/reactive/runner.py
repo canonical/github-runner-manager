@@ -49,7 +49,12 @@ def main() -> None:
         config=runner_config.runner_manager,
     )
     github_client = GithubClient(token=runner_config.github_token)
-    consume(queue_config=queue_config, runner_manager=runner_manager, github_client=github_client)
+    consume(
+        queue_config=queue_config,
+        runner_manager=runner_manager,
+        github_client=github_client,
+        supported_labels=runner_config.supported_labels,
+    )
 
 
 if __name__ == "__main__":

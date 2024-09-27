@@ -24,6 +24,8 @@ from github_runner_manager.types_.github import GitHubRepo
 
 logger = logging.getLogger(__name__)
 
+Labels = set[str]
+
 
 class JobPickedUpStates(str, Enum):
     """The states of a job that indicate it has been picked up.
@@ -45,7 +47,7 @@ class JobDetails(BaseModel):
         url: The URL of the job to check its status.
     """
 
-    labels: list[str]
+    labels: Labels
     url: HttpUrl
 
     @validator("url")
@@ -96,7 +98,10 @@ def get_queue_size(queue_config: QueueConfig) -> int:
 
 
 def consume(
-    queue_config: QueueConfig, runner_manager: RunnerManager, github_client: GithubClient
+    queue_config: QueueConfig,
+    runner_manager: RunnerManager,
+    github_client: GithubClient,
+    supported_labels: Labels,
 ) -> None:
     """Consume a job from the message queue.
 
@@ -107,6 +112,8 @@ def consume(
         queue_config: The configuration for the message queue.
         runner_manager: The runner manager used to create the runner.
         github_client: The GitHub client to use to check the job status.
+        supported_labels: The supported labels for the runner. If the job has unsupported labels,
+            the message is requeued.
 
     Raises:
         JobError: If the job details are invalid.
@@ -127,14 +134,38 @@ def consume(
                         job_details.labels,
                         job_details.url,
                     )
-                    _spawn_runner(
-                        runner_manager=runner_manager,
-                        job_url=job_details.url,
-                        msg=msg,
-                        github_client=github_client,
-                    )
+                    if not _validate_labels(
+                        labels=job_details.labels, supported_labels=supported_labels
+                    ):
+                        logger.error(
+                            "Found unsupported job labels in %s. "
+                            "Will not spawn a runner and requeue the message.",
+                            job_details.labels,
+                        )
+                        msg.reject(requeue=True)
+                    else:
+                        _spawn_runner(
+                            runner_manager=runner_manager,
+                            job_url=job_details.url,
+                            msg=msg,
+                            github_client=github_client,
+                        )
     except KombuError as exc:
         raise QueueError("Error when communicating with the queue") from exc
+
+
+
+def _validate_labels(labels: Labels, supported_labels: Labels) -> bool:
+    """Validate the labels of the job.
+
+    Args:
+        labels: The labels of the job.
+        supported_labels: The supported labels for the runner.
+
+    Returns:
+        True if the labels are valid, False otherwise.
+    """
+    return {label.lower() for label in labels} <= {label.lower() for label in supported_labels}
 
 
 def _spawn_runner(
