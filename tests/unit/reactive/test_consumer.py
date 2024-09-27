@@ -13,7 +13,7 @@ from kombu import Connection, Message
 from kombu.exceptions import KombuError
 
 from github_runner_manager.reactive import consumer
-from github_runner_manager.reactive.consumer import JobError, get_queue_size, Labels
+from github_runner_manager.reactive.consumer import JobError, Labels, get_queue_size
 from github_runner_manager.reactive.types_ import QueueConfig
 from github_runner_manager.types_.github import JobConclusion, JobInfo, JobStatus
 
@@ -119,6 +119,7 @@ def test_consume_raises_queue_error(monkeypatch: pytest.MonkeyPatch, queue_confi
             queue_config=queue_config,
             runner_manager=MagicMock(spec=consumer.RunnerManager),
             github_client=MagicMock(spec=consumer.GithubClient),
+            supported_labels={"label1", "label2"},
         )
     assert "Error when communicating with the queue" in str(exc_info.value)
 

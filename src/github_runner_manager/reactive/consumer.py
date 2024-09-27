@@ -154,7 +154,6 @@ def consume(
         raise QueueError("Error when communicating with the queue") from exc
 
 
-
 def _validate_labels(labels: Labels, supported_labels: Labels) -> bool:
     """Validate the labels of the job.
 
