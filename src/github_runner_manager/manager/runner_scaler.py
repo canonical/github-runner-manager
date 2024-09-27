@@ -127,7 +127,7 @@ class RunnerScaler:
         if self._reactive_config is not None:
             logger.info("Reactive configuration detected, going into experimental reactive mode.")
             return reactive_runner_manager.reconcile(
-                quantity=quantity,
+                expected_quantity=quantity,
                 runner_manager=self._manager,
                 runner_config=self._reactive_config,
             )

@@ -12,11 +12,14 @@ from github_runner_manager.reactive.types_ import RunnerConfig
 logger = logging.getLogger(__name__)
 
 
-def reconcile(quantity: int, runner_manager: RunnerManager, runner_config: RunnerConfig) -> int:
+def reconcile(
+    expected_quantity: int, runner_manager: RunnerManager, runner_config: RunnerConfig
+) -> int:
     """Reconcile runners reactively.
 
     The reconciliation attempts to make the following equation true:
-        quantity_of_current_runners + reactive_processes_consuming_jobs == quantity.
+        quantity_of_current_runners + amount_of_reactive_processes_consuming_jobs
+            == expected_quantity
 
     A few examples:
 
@@ -50,7 +53,7 @@ def reconcile(quantity: int, runner_manager: RunnerManager, runner_config: Runne
     no idle runners are left behind if there are no new jobs.
 
     Args:
-        quantity: Number of intended amount of runners + reactive processes.
+        expected_quantity: Number of intended amount of runners + reactive processes.
         runner_manager: The runner manager to interact with current running runners.
         runner_config: The reactive runner config.
 
@@ -63,7 +66,7 @@ def reconcile(quantity: int, runner_manager: RunnerManager, runner_config: Runne
         runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
 
     runners = runner_manager.get_runners()
-    runner_diff = quantity - len(runners)
+    runner_diff = expected_quantity - len(runners)
 
     if runner_diff >= 0:
         process_quantity = runner_diff

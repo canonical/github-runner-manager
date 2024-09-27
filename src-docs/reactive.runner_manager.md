@@ -14,7 +14,7 @@ Module for reconciling amount of runner and reactive runner processes.
 
 ```python
 reconcile(
-    quantity: int,
+    expected_quantity: int,
     runner_manager: RunnerManager,
     runner_config: RunnerConfig
 ) → int
@@ -22,7 +22,7 @@ reconcile(
 
 Reconcile runners reactively. 
 
-The reconciliation attempts to make the following equation true:  quantity_of_current_runners + reactive_processes_consuming_jobs == quantity. 
+The reconciliation attempts to make the following equation true:  quantity_of_current_runners + amount_of_reactive_processes_consuming_jobs  == expected_quantity 
 
 A few examples: 
 
@@ -44,7 +44,7 @@ In addition to this behaviour, reconciliation also checks the queue at the start
 
 **Args:**
  
- - <b>`quantity`</b>:  Number of intended amount of runners + reactive processes. 
+ - <b>`expected_quantity`</b>:  Number of intended amount of runners + reactive processes. 
  - <b>`runner_manager`</b>:  The runner manager to interact with current running runners. 
  - <b>`runner_config`</b>:  The reactive runner config. 
 
