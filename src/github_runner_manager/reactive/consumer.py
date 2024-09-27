@@ -127,7 +127,8 @@ def consume(
                     try:
                         job_details = cast(JobDetails, JobDetails.parse_raw(msg.payload))
                     except ValidationError as exc:
-                        msg.reject(requeue=True)
+                        logger.error("Found invalid job details, will reject the message.")
+                        msg.reject(requeue=False)
                         raise JobError(f"Invalid job details: {msg.payload}") from exc
                     logger.info(
                         "Received job with labels %s and job_url %s",
@@ -139,10 +140,14 @@ def consume(
                     ):
                         logger.error(
                             "Found unsupported job labels in %s. "
-                            "Will not spawn a runner and requeue the message.",
+                            "Will not spawn a runner and reject the message.",
                             job_details.labels,
                         )
-                        msg.reject(requeue=True)
+                        # We currently do not expect this to happen, but we should handle it.
+                        # We do not want to requeue the message as it will be rejected again.
+                        # This may change in the future when messages for multiple
+                        # flavours are sent to the same queue.
+                        msg.reject(requeue=False)
                     else:
                         _spawn_runner(
                             runner_manager=runner_manager,
