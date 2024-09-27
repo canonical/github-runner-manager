@@ -18,13 +18,14 @@ Represents an OpenStack instance.
 
 **Attributes:**
  
+ - <b>`addresses`</b>:  IP addresses assigned to the server. 
+ - <b>`created_at`</b>:  The timestamp in which the instance was created at. 
+ - <b>`instance_id`</b>:  ID used by OpenstackCloud class to manage the instances. See docs on the  OpenstackCloud. 
  - <b>`server_id`</b>:  ID of server assigned by OpenStack. 
  - <b>`server_name`</b>:  Name of the server on OpenStack. 
- - <b>`instance_id`</b>:  ID used by OpenstackCloud class to manage the instances. See docs on the  OpenstackCloud. 
- - <b>`addresses`</b>:  IP addresses assigned to the server. 
  - <b>`status`</b>:  Status of the server. 
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L60"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L62"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `__init__`
 
@@ -53,14 +54,14 @@ Construct the object.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L126"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L128"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `OpenstackCloud`
 Client to interact with OpenStack cloud. 
 
 The OpenStack server name is managed by this cloud. Caller refers to the instances via instance_id. If the caller needs the server name, e.g., for logging, it can be queried with get_server_name. 
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L134"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L136"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `__init__`
 
@@ -83,7 +84,7 @@ Create the object.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L335"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L337"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `cleanup`
 
@@ -95,7 +96,7 @@ Cleanup unused key files and openstack keypairs.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L224"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L226"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `delete_instance`
 
@@ -113,7 +114,7 @@ Delete a openstack instance.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L204"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L206"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get_instance`
 
@@ -136,7 +137,7 @@ Get OpenStack instance by instance ID.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L312"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L314"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get_instances`
 
@@ -153,7 +154,7 @@ Get all OpenStack instances.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L345"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L347"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get_server_name`
 
@@ -176,7 +177,7 @@ Get server name on OpenStack.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L259"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L261"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get_ssh_connection`
 
@@ -206,7 +207,7 @@ Get SSH connection to an OpenStack instance.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L149"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L151"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `launch_instance`
 

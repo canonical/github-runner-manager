@@ -8,7 +8,7 @@ Module containing GitHub API related types.
 
 ---
 
-<a href="../src/github_runner_manager/types_/github.py#L213"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/github.py#L235"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `parse_github_path`
 
@@ -201,7 +201,29 @@ See :https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28
 
 <a href="../src/github_runner_manager/types_/github.py#L152"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
-## <kbd>class</kbd> `JobStats`
+## <kbd>class</kbd> `JobStatus`
+Status of a job on GitHub. 
+
+
+
+**Attributes:**
+ 
+ - <b>`QUEUED`</b>:  Represents a job that is queued. 
+ - <b>`IN_PROGRESS`</b>:  Represents a job that is in progress. 
+ - <b>`COMPLETED`</b>:  Represents a job that is completed. 
+ - <b>`WAITING`</b>:  Represents a job that is waiting. 
+ - <b>`REQUESTED`</b>:  Represents a job that is requested. 
+ - <b>`PENDING`</b>:  Represents a job that is pending. 
+
+
+
+
+
+---
+
+<a href="../src/github_runner_manager/types_/github.py#L172"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+
+## <kbd>class</kbd> `JobInfo`
 Stats for a job on GitHub. 
 
 
@@ -212,6 +234,7 @@ Stats for a job on GitHub.
  - <b>`created_at`</b>:  The time the job was created. 
  - <b>`started_at`</b>:  The time the job was started. 
  - <b>`conclusion`</b>:  The end result of a job. 
+ - <b>`status`</b>:  The status of the job. 
 
 
 ---
@@ -241,7 +264,7 @@ Returns the set of fields that have been explicitly set on this model instance.
 
 ---
 
-<a href="../src/github_runner_manager/types_/github.py#L168"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/github.py#L190"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `GitHubRepo`
 Represent GitHub repository. 
@@ -270,7 +293,7 @@ __init__(owner: 'str', repo: 'str') → None
 
 ---
 
-<a href="../src/github_runner_manager/types_/github.py#L180"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/github.py#L202"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `path`
 
@@ -288,7 +311,7 @@ Return a string representing the path.
 
 ---
 
-<a href="../src/github_runner_manager/types_/github.py#L189"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/github.py#L211"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `GitHubOrg`
 Represent GitHub organization. 
@@ -317,7 +340,7 @@ __init__(org: 'str', group: 'str') → None
 
 ---
 
-<a href="../src/github_runner_manager/types_/github.py#L201"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/github.py#L223"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `path`
 

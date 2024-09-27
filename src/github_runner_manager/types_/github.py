@@ -149,7 +149,27 @@ class JobConclusion(str, Enum):
     TIMED_OUT = "timed_out"
 
 
-class JobStats(BaseModel):
+class JobStatus(str, Enum):
+    """Status of a job on GitHub.
+
+    Attributes:
+        QUEUED: Represents a job that is queued.
+        IN_PROGRESS: Represents a job that is in progress.
+        COMPLETED: Represents a job that is completed.
+        WAITING: Represents a job that is waiting.
+        REQUESTED: Represents a job that is requested.
+        PENDING: Represents a job that is pending.
+    """
+
+    QUEUED = "queued"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    WAITING = "waiting"
+    REQUESTED = "requested"
+    PENDING = "pending"
+
+
+class JobInfo(BaseModel):
     """Stats for a job on GitHub.
 
     Attributes:
@@ -157,12 +177,14 @@ class JobStats(BaseModel):
         created_at: The time the job was created.
         started_at: The time the job was started.
         conclusion: The end result of a job.
+        status: The status of the job.
     """
 
     job_id: int
     created_at: datetime
     started_at: datetime
     conclusion: Optional[JobConclusion] = None
+    status: JobStatus
 
 
 @dataclasses.dataclass

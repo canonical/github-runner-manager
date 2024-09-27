@@ -4,17 +4,7 @@
 """Package containing modules with type definitions."""
 from typing import Optional
 
-from pydantic import AnyHttpUrl, BaseModel, Field, IPvAnyAddress, MongoDsn, model_validator
-
-
-class ReactiveConfig(BaseModel):
-    """Represents the configuration for reactive scheduling.
-
-    Attributes:
-        mq_uri: The URI of the MQ to use to spawn runners reactively.
-    """
-
-    mq_uri: MongoDsn
+from pydantic import AnyHttpUrl, BaseModel, Field, IPvAnyAddress, model_validator
 
 
 class ProxyConfig(BaseModel):

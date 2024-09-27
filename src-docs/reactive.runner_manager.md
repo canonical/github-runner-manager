@@ -7,14 +7,13 @@ Module for managing reactive runners.
 
 **Global Variables**
 ---------------
-- **MQ_URI_ENV_VAR**
-- **QUEUE_NAME_ENV_VAR**
 - **PYTHON_BIN**
 - **REACTIVE_RUNNER_SCRIPT_MODULE**
 - **REACTIVE_RUNNER_CMD_LINE_PREFIX**
 - **PID_CMD_COLUMN_WIDTH**
 - **PIDS_COMMAND_LINE**
 - **UBUNTU_USER**
+- **RUNNER_CONFIG_ENV_VAR**
 
 ---
 
@@ -23,7 +22,7 @@ Module for managing reactive runners.
 ## <kbd>function</kbd> `reconcile`
 
 ```python
-reconcile(quantity: int, mq_uri: str, queue_name: str) → int
+reconcile(quantity: int, runner_config: RunnerConfig) → int
 ```
 
 Spawn a runner reactively. 
@@ -33,8 +32,7 @@ Spawn a runner reactively.
 **Args:**
  
  - <b>`quantity`</b>:  The number of runners to spawn. 
- - <b>`mq_uri`</b>:  The message queue URI. 
- - <b>`queue_name`</b>:  The name of the queue. 
+ - <b>`runner_config`</b>:  The reactive runner configuration. 
 
 Raises a ReactiveRunnerError if the runner fails to spawn. 
 

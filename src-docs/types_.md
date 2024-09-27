@@ -11,44 +11,6 @@ Package containing modules with type definitions.
 
 <a href="../src/github_runner_manager/types_/__init__.py#L10"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
-## <kbd>class</kbd> `ReactiveConfig`
-Represents the configuration for reactive scheduling. 
-
-
-
-**Attributes:**
- 
- - <b>`mq_uri`</b>:  The URI of the MQ to use to spawn runners reactively. 
-
-
----
-
-#### <kbd>property</kbd> model_extra
-
-Get extra fields set during validation. 
-
-
-
-**Returns:**
-  A dictionary of extra fields, or `None` if `config.extra` is not set to `"allow"`. 
-
----
-
-#### <kbd>property</kbd> model_fields_set
-
-Returns the set of fields that have been explicitly set on this model instance. 
-
-
-
-**Returns:**
-  A set of strings representing the fields that have been set,  i.e. that were not filled from defaults. 
-
-
-
-
----
-
-<a href="../src/github_runner_manager/types_/__init__.py#L20"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `ProxyConfig`
 Proxy configuration. 
@@ -96,7 +58,7 @@ Returns the set of fields that have been explicitly set on this model instance.
 
 ---
 
-<a href="../src/github_runner_manager/types_/__init__.py#L54"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/__init__.py#L44"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `check_use_aproxy`
 
@@ -120,7 +82,7 @@ Validate the proxy configuration.
 
 ---
 
-<a href="../src/github_runner_manager/types_/__init__.py#L78"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/__init__.py#L73"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `SSHDebugConnection`
 SSH connection information for debug workflow. 
@@ -162,7 +124,7 @@ Returns the set of fields that have been explicitly set on this model instance.
 
 ---
 
-<a href="../src/github_runner_manager/types_/__init__.py#L94"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/types_/__init__.py#L89"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `RepoPolicyComplianceConfig`
 Configuration for the repo policy compliance service. 
