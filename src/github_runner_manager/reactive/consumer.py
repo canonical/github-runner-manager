@@ -63,7 +63,7 @@ class JobDetails(BaseModel):
         Raises:
             ValueError: If the job_url path is empty.
         """
-        if not v.path or v.path == '/':
+        if not v.path or v.path == "/":
             raise ValueError("path must be provided")
         return v
 
