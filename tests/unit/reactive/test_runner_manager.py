@@ -11,6 +11,31 @@ from github_runner_manager.reactive.runner_manager import reconcile
 from github_runner_manager.reactive.types_ import QueueConfig, RunnerConfig
 
 
+@pytest.fixture(name="runner_manager")
+def runner_manager_fixture() -> MagicMock:
+    """Return a mock of the RunnerManager."""
+    return MagicMock(spec=RunnerManager)
+
+
+@pytest.fixture(name="reactive_process_manager")
+def reactive_process_manager_fixture(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Return a mock of the process manager."""
+    reactive_process_manager = MagicMock(spec=github_runner_manager.reactive.process_manager)
+    monkeypatch.setattr(
+        "github_runner_manager.reactive.runner_manager.process_manager",
+        reactive_process_manager,
+    )
+    return reactive_process_manager
+
+
+@pytest.fixture(name="runner_config")
+def runner_config_fixture():
+    """Return a mock of the RunnerConfig."""
+    runner_config = MagicMock(spec=RunnerConfig)
+    runner_config.queue = MagicMock(spec=QueueConfig)
+    return runner_config
+
+
 @pytest.mark.parametrize(
     "runner_quantity, desired_quantity, expected_process_quantity",
     [
@@ -25,6 +50,9 @@ def test_reconcile_positive_runner_diff(
     runner_quantity: int,
     desired_quantity: int,
     expected_process_quantity: int,
+    runner_manager: MagicMock,
+    reactive_process_manager: MagicMock,
+    runner_config: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ):
     """
@@ -33,23 +61,13 @@ def test_reconcile_positive_runner_diff(
     assert: The cleanup method of runner manager is called and the reconcile method of
         process manager is called with the expected quantity.
     """
-    runner_manager = MagicMock(spec=RunnerManager)
     runner_manager.get_runners = MagicMock(
         return_value=(tuple(MagicMock(spec=RunnerInstance) for _ in range(runner_quantity)))
     )
-    reactive_process_manager = MagicMock(spec=github_runner_manager.reactive.process_manager)
-    runner_config = MagicMock(spec=RunnerConfig)
-    runner_config.queue = MagicMock(spec=QueueConfig)
-    monkeypatch.setattr(
-        "github_runner_manager.reactive.runner_manager.process_manager",
-        reactive_process_manager,
-    )
-    monkeypatch.setattr(
-        "github_runner_manager.reactive.runner_manager.get_queue_size",
-        lambda _: randint(1, 10),
-    )
+    _set_queue_non_empty(monkeypatch)
 
     reconcile(desired_quantity, runner_manager, runner_config)
+
     runner_manager.cleanup.assert_called_once()
     reactive_process_manager.reconcile.assert_called_once_with(
         quantity=expected_process_quantity, runner_config=runner_config
@@ -68,6 +86,9 @@ def test_reconcile_negative_runner_diff(
     runner_quantity: int,
     desired_quantity: int,
     expected_number_of_runners_to_delete: int,
+    runner_manager: MagicMock,
+    reactive_process_manager: MagicMock,
+    runner_config: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ):
     """
@@ -76,23 +97,13 @@ def test_reconcile_negative_runner_diff(
     assert: The additional amount of runners are deleted and the reconcile method of the
         process manager is called with zero quantity.
     """
-    runner_manager = MagicMock(spec=RunnerManager)
     runner_manager.get_runners = MagicMock(
         return_value=(tuple(MagicMock(spec=RunnerInstance) for _ in range(runner_quantity)))
     )
-    reactive_process_manager = MagicMock(spec=github_runner_manager.reactive.process_manager)
-    runner_config = MagicMock(spec=RunnerConfig)
-    runner_config.queue = MagicMock(spec=QueueConfig)
-    monkeypatch.setattr(
-        "github_runner_manager.reactive.runner_manager.process_manager",
-        reactive_process_manager,
-    )
-    monkeypatch.setattr(
-        "github_runner_manager.reactive.runner_manager.get_queue_size",
-        lambda _: randint(1, 10),
-    )
+    _set_queue_non_empty(monkeypatch)
 
     reconcile(desired_quantity, runner_manager, runner_config)
+
     runner_manager.cleanup.assert_called_once()
     runner_manager.delete_runners.assert_called_once_with(expected_number_of_runners_to_delete)
     reactive_process_manager.reconcile.assert_called_once_with(
@@ -100,26 +111,44 @@ def test_reconcile_negative_runner_diff(
     )
 
 
-def test_reconcile_flushes_idle_runners_when_queue_is_empty(monkeypatch: pytest.MonkeyPatch):
+def test_reconcile_flushes_idle_runners_when_queue_is_empty(
+    runner_manager: MagicMock,
+    reactive_process_manager: MagicMock,
+    runner_config: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+):
     """
     arrange: Mock the dependencies and set the queue size to 0.
     act: Call reconcile with random quantity.
     assert: The flush_runners method of runner manager is called with FLUSH_IDLE mode.
     """
-    runner_manager = MagicMock(spec=RunnerManager)
-    reactive_process_manager = MagicMock(spec=github_runner_manager.reactive.process_manager)
-    runner_config = MagicMock(spec=RunnerConfig)
-    runner_config.queue = MagicMock(spec=QueueConfig)
     quantity = randint(0, 10)
-    monkeypatch.setattr(
-        "github_runner_manager.reactive.runner_manager.process_manager",
-        reactive_process_manager,
-    )
-    monkeypatch.setattr(
-        "github_runner_manager.reactive.runner_manager.get_queue_size",
-        lambda _: 0,
-    )
+    _set_queue_empty(monkeypatch)
 
     reconcile(quantity, runner_manager, runner_config)
 
     runner_manager.flush_runners.assert_called_once_with(FlushMode.FLUSH_IDLE)
+
+
+def _set_queue_non_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Set the queue size to a random value between 1 and 10.
+
+    Args:
+        monkeypatch: The pytest monkeypatch fixture used to patch the get_queue_size function.
+    """
+    monkeypatch.setattr(
+        "github_runner_manager.reactive.runner_manager.get_queue_size",
+        lambda _: randint(1, 10),
+    )
+
+
+def _set_queue_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Set the queue size to zero.
+
+    Args:
+        monkeypatch: The pytest monkeypatch fixture used to patch the get_queue_size function.
+    """
+    monkeypatch.setattr(
+        "github_runner_manager.reactive.runner_manager.get_queue_size",
+        lambda _: 0,
+    )
