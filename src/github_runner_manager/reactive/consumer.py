@@ -63,7 +63,7 @@ class JobDetails(BaseModel):
         Raises:
             ValueError: If the job_url path is empty.
         """
-        if not v.path:
+        if not v.path or v.path == '/':
             raise ValueError("path must be provided")
         return v
 
@@ -182,6 +182,10 @@ def _check_job_been_picked_up(job_url: HttpUrl, github_client: GithubClient) -> 
     # "https://api.github.com/repos/cbartz/gh-runner-test/actions/jobs/22428484402"
     path = job_url.path
     # we know that path is not empty as it is validated by the JobDetails model
+    logging.debug(
+        "----------- job_url path %s", path
+    )
+
     job_url_path_parts = path.split("/")  # type: ignore
     job_id = job_url_path_parts[-1]
     owner = job_url_path_parts[2]
