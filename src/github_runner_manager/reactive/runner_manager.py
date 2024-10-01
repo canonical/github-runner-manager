@@ -22,12 +22,12 @@ class ReconcileResult:
     """The result of the reconciliation.
 
     Attributes:
-        processes_created: The number of reactive processes created.
-        metrics_stats: The stats of the issued metric events
+        processes_diff: The number of reactive processes created/removed.
+        metric_stats: The stats of the issued metric events
     """
 
-    processes_created: int
-    metrics_stats: IssuedMetricEventsStats
+    processes_diff: int
+    metric_stats: IssuedMetricEventsStats
 
 
 def reconcile(
@@ -79,7 +79,7 @@ def reconcile(
         The number of reactive processes created. If negative, its absolute value is equal
         to the number of processes killed.
     """
-    runner_manager.cleanup()
+    cleanup_metric_stats = runner_manager.cleanup()
     if get_queue_size(runner_config.queue) == 0:
         runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
 
@@ -88,11 +88,19 @@ def reconcile(
 
     if runner_diff >= 0:
         process_quantity = runner_diff
+        metric_stats = cleanup_metric_stats
     else:
-        runner_manager.delete_runners(-runner_diff)
+        delete_metric_stats = runner_manager.delete_runners(-runner_diff)
         process_quantity = 0
+        metric_stats = {
+            event_name: delete_metric_stats.get(event_name, 0)
+            + cleanup_metric_stats.get(event_name, 0)
+            for event_name in set(delete_metric_stats) | set(cleanup_metric_stats)
+        }
 
-    return process_manager.reconcile(
+    processes_created = process_manager.reconcile(
         quantity=process_quantity,
         runner_config=runner_config,
     )
+
+    return ReconcileResult(processes_diff=processes_created, metric_stats=metric_stats)

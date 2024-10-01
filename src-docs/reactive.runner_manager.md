@@ -65,15 +65,15 @@ The result of the reconciliation.
 
 **Attributes:**
  
- - <b>`processes_created`</b>:  The number of reactive processes created. 
- - <b>`metrics_stats`</b>:  The stats of the issued metric events 
+ - <b>`processes_diff`</b>:  The number of reactive processes created/removed. 
+ - <b>`metric_stats`</b>:  The stats of the issued metric events 
 
 <a href="../<string>"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `__init__`
 
 ```python
-__init__(processes_created: int, metrics_stats: dict[Type[Event], int]) → None
+__init__(processes_diff: int, metric_stats: dict[Type[Event], int]) → None
 ```
 
 
