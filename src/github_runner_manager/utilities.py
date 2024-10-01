@@ -10,7 +10,6 @@ import subprocess  # nosec B404
 import time
 from typing import Any, Callable, Optional, Sequence, Type, TypeVar
 
-from pydantic_core import Url
 from typing_extensions import ParamSpec
 
 logger = logging.getLogger(__name__)
@@ -146,7 +145,7 @@ def secure_run_subprocess(
     return result
 
 
-def set_env_var(env_var: str, value: str | Url) -> None:
+def set_env_var(env_var: str, value: str) -> None:
     """Set the environment variable value.
 
     Set the all upper case and all low case of the `env_var`.
@@ -155,5 +154,5 @@ def set_env_var(env_var: str, value: str | Url) -> None:
         env_var: Name of the environment variable.
         value: Value to set environment variable to.
     """
-    os.environ[env_var.upper()] = str(value)
-    os.environ[env_var.lower()] = str(value)
+    os.environ[env_var.upper()] = value
+    os.environ[env_var.lower()] = value
