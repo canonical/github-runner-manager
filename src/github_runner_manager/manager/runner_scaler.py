@@ -253,23 +253,25 @@ class RunnerScaler:
             metric_stats: The metric stats.
             runner_list: The list of runners.
         """
-        idle_runners = [
-            runner for runner in runner_list if runner.github_state == GitHubRunnerState.IDLE
-        ]
-        offline_healthy_runners = [
-            runner
+        idle_runners = {
+            runner.name for runner in runner_list if runner.github_state == GitHubRunnerState.IDLE
+        }
+
+        offline_healthy_runners = {
+            runner.name
             for runner in runner_list
             if runner.github_state == GitHubRunnerState.OFFLINE
             and runner.health == HealthState.HEALTHY
-        ]
+        }
+        available_runners = idle_runners | offline_healthy_runners
+        active_runners = {
+            runner.name for runner in runner_list if runner.github_state == GitHubRunnerState.BUSY
+        }
+        logger.info("Current available runners (idle + healthy offline): %s", available_runners)
+        logger.info("Current active runners: %s", active_runners)
 
         try:
-            available_runners = set(runner.name for runner in idle_runners) | set(
-                runner.name for runner in offline_healthy_runners
-            )
-            logger.info(
-                "Current available runners (idle + healthy offline): %s", available_runners
-            )
+
             metric_events.issue_event(
                 metric_events.Reconciliation(
                     timestamp=time.time(),
@@ -277,6 +279,7 @@ class RunnerScaler:
                     crashed_runners=metric_stats.get(metric_events.RunnerStart, 0)
                     - metric_stats.get(metric_events.RunnerStop, 0),
                     idle_runners=len(available_runners),
+                    active_runners=len(active_runners),
                     duration=end_timestamp - start_timestamp,
                 )
             )
