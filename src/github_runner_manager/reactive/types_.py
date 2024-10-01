@@ -31,7 +31,7 @@ class RunnerConfig(BaseModel):
         queue: The queue configuration.
         runner_manager: The runner manager configuration.
         cloud_runner_manager: The OpenStack runner manager configuration.
-        system_user_config: The configuration for the system user used to spawn processes.
+        system_user: The configuration for the system user used to spawn processes.
         github_token: str
         supported_labels: The supported labels for the runner.
     """
@@ -39,6 +39,6 @@ class RunnerConfig(BaseModel):
     queue: QueueConfig
     runner_manager: RunnerManagerConfig
     cloud_runner_manager: OpenStackRunnerManagerConfig
-    system_user_config: SystemUserConfig
+    system_user: SystemUserConfig
     github_token: str
     supported_labels: set[str]

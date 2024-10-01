@@ -39,7 +39,7 @@ The configuration for the reactive runner to spawn.
  - <b>`queue`</b>:  The queue configuration. 
  - <b>`runner_manager`</b>:  The runner manager configuration. 
  - <b>`cloud_runner_manager`</b>:  The OpenStack runner manager configuration. 
- - <b>`system_user_config`</b>:  The configuration for the system user used to spawn processes. 
+ - <b>`system_user`</b>:  The configuration for the system user used to spawn processes. 
  - <b>`github_token`</b>:  str 
  - <b>`supported_labels`</b>:  The supported labels for the runner. 
 

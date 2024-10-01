@@ -48,7 +48,9 @@ def mock_openstack_runner_manager_fixture():
             ssh_debug_connections=None,
             repo_policy_compliance=None,
         ),
+        system_user_config=MagicMock(spec=openstack_runner_manager.SystemUserConfig),
     )
+
     return openstack_runner_manager.OpenStackRunnerManager(config=config)
 
 

@@ -143,7 +143,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         name_prefix: The name prefix of the runners created.
     """
 
-    def __init__(  # pylint: disable=R0913
+    def __init__(
         self,
         config: OpenStackRunnerManagerConfig,
     ) -> None:
@@ -152,20 +152,16 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Args:
             config: The configuration for the openstack runner manager.
         """
-        self._manager_name = config.name
-        self._prefix = config.prefix
-        self._cloud_config = config.cloud_config
-        self._server_config = config.server_config
-        self._runner_config = config.runner_config
-        self._service_config = config.service_config
+        self._config = config
         self._openstack_cloud = OpenstackCloud(
-            clouds_config=self._cloud_config.clouds_config,
-            cloud=self._cloud_config.cloud,
+            clouds_config=config.cloud_config.clouds_config,
+            cloud=config.cloud_config.cloud,
             prefix=self.name_prefix,
         )
+        self._system_user_config = config.system_user_config
 
         # Setting the env var to this process and any child process spawned.
-        proxies = self._service_config.proxy_config
+        proxies = config.service_config.proxy_config
         if proxies and (no_proxy := proxies.no_proxy):
             set_env_var("NO_PROXY", no_proxy)
         if proxies and (http_proxy := proxies.http):
@@ -180,7 +176,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             The prefix of the runner names managed by this class.
         """
-        return self._prefix
+        return self._config.prefix
 
     def create_runner(self, registration_token: str) -> InstanceId:
         """Create a self-hosted runner.
@@ -195,7 +191,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             Instance ID of the runner.
         """
-        if self._server_config is None:
+        if (server_config := self._config.server_config) is None:
             raise MissingServerConfigError("Missing server configuration to create runners")
 
         start_timestamp = time.time()
@@ -207,9 +203,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
         try:
             instance = self._openstack_cloud.launch_instance(
                 instance_id=instance_id,
-                image=self._server_config.image,
-                flavor=self._server_config.flavor,
-                network=self._server_config.network,
+                image=server_config.image,
+                flavor=server_config.flavor,
+                network=server_config.network,
                 cloud_init=cloud_init,
             )
         except OpenStackError as err:
@@ -222,9 +218,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
 
         logger.debug("Issuing runner installed metric: %s", instance.server_name)
         end_timestamp = time.time()
-        OpenStackRunnerManager._issue_runner_installed_metric(
+        self._issue_runner_installed_metric(
             name=instance_name,
-            flavor=self._manager_name,
+            flavor=self._config.name,
             install_start_timestamp=start_timestamp,
             install_end_timestamp=end_timestamp,
         )
@@ -488,12 +484,13 @@ class OpenStackRunnerManager(CloudRunnerManager):
             loader=jinja2.PackageLoader("github_runner_manager", "templates"), autoescape=True
         )
 
+        service_config = self._config.service_config
         env_contents = jinja.get_template("env.j2").render(
             pre_job_script=str(PRE_JOB_SCRIPT),
-            dockerhub_mirror=self._service_config.dockerhub_mirror or "",
+            dockerhub_mirror=service_config.dockerhub_mirror or "",
             ssh_debug_info=(
-                secrets.choice(self._service_config.ssh_debug_connections)
-                if self._service_config.ssh_debug_connections
+                secrets.choice(service_config.ssh_debug_connections)
+                if service_config.ssh_debug_connections
                 else None
             ),
         )
@@ -516,24 +513,25 @@ class OpenStackRunnerManager(CloudRunnerManager):
         pre_job_contents = jinja.get_template("pre-job.j2").render(pre_job_contents_dict)
 
         runner_group = None
-        if isinstance(self._runner_config.github_path, GitHubOrg):
-            runner_group = self._runner_config.github_path.group
+        runner_config = self._config.runner_config
+        if isinstance(runner_config.github_path, GitHubOrg):
+            runner_group = runner_config.github_path.group
         aproxy_address = (
-            self._service_config.proxy_config.aproxy_address
-            if self._service_config.proxy_config is not None
+            service_config.proxy_config.aproxy_address
+            if service_config.proxy_config is not None
             else None
         )
         return jinja.get_template("openstack-userdata.sh.j2").render(
-            github_url=f"https://github.com/{self._runner_config.github_path.path()}",
+            github_url=f"https://github.com/{runner_config.github_path.path()}",
             runner_group=runner_group,
             token=registration_token,
-            instance_labels=",".join(self._runner_config.labels),
+            instance_labels=",".join(runner_config.labels),
             instance_name=instance_name,
             env_contents=env_contents,
             pre_job_contents=pre_job_contents,
             metrics_exchange_path=str(METRICS_EXCHANGE_PATH),
             aproxy_address=aproxy_address,
-            dockerhub_mirror=self._service_config.dockerhub_mirror,
+            dockerhub_mirror=service_config.dockerhub_mirror,
         )
 
     def _get_repo_policy_compliance_client(self) -> RepoPolicyComplianceClient | None:
@@ -542,10 +540,10 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             The repo policy compliance client.
         """
-        if self._service_config.repo_policy_compliance is not None:
+        if (service_config := self._config.service_config).repo_policy_compliance is not None:
             return RepoPolicyComplianceClient(
-                self._service_config.repo_policy_compliance.url,
-                self._service_config.repo_policy_compliance.token,
+                service_config.repo_policy_compliance.url,
+                service_config.repo_policy_compliance.token,
             )
         return None
 
@@ -746,8 +744,8 @@ class OpenStackRunnerManager(CloudRunnerManager):
         """
         return secrets.token_hex(12)
 
-    @staticmethod
     def _issue_runner_installed_metric(
+        self,
         name: str,
         flavor: str,
         install_start_timestamp: float,
@@ -773,7 +771,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
             logger.exception("Failed to issue RunnerInstalled metric")
 
         try:
-            storage = metrics_storage.create(name)
+            storage = metrics_storage.create(
+                runner_name=name, system_user_config=self._system_user_config
+            )
         except CreateMetricsStorageError:
             logger.exception(
                 "Failed to create metrics storage for runner %s, "

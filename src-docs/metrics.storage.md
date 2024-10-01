@@ -43,7 +43,7 @@ The method is not idempotent and will raise an exception if the storage already 
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L105"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L126"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `list_all`
 
@@ -61,7 +61,7 @@ List all the metric storages.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L124"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L145"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `get`
 
@@ -91,7 +91,7 @@ Get the metrics storage for the runner.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L143"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L164"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `delete`
 
@@ -116,7 +116,7 @@ Delete the metrics storage for the runner.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L162"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L183"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `move_to_quarantine`
 

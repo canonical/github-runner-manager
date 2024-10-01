@@ -86,7 +86,28 @@ def create(runner_name: str, system_user_config: SystemUserConfig) -> MetricsSto
     """
     try:
         FILESYSTEM_BASE_PATH.mkdir(exist_ok=True)
+        shutil.chown(
+            FILESYSTEM_BASE_PATH, user=system_user_config.user, group=system_user_config.group
+        )
+        logger.debug(
+            "Changed ownership of %s to %s:%s",
+            FILESYSTEM_BASE_PATH,
+            system_user_config.user,
+            system_user_config.group,
+        )
         FILESYSTEM_QUARANTINE_PATH.mkdir(exist_ok=True)
+        shutil.chown(
+            FILESYSTEM_QUARANTINE_PATH,
+            user=system_user_config.user,
+            group=system_user_config.group,
+        )
+        logger.debug(
+            "Changed ownership of %s to %s:%s",
+            FILESYSTEM_QUARANTINE_PATH,
+            system_user_config.user,
+            system_user_config.group,
+        )
+
     except OSError as exc:
         raise CreateMetricsStorageError("Failed to create metrics storage directories") from exc
 
