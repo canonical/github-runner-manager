@@ -4,7 +4,7 @@
 """Package containing modules with type definitions."""
 from typing import Optional
 
-from pydantic import AnyHttpUrl, BaseModel, Field, IPvAnyAddress, validator
+from pydantic import AnyHttpUrl, BaseModel, Field, IPvAnyAddress, model_validator
 
 
 class ProxyConfig(BaseModel):
@@ -12,22 +12,34 @@ class ProxyConfig(BaseModel):
 
     Attributes:
         aproxy_address: The address of aproxy snap instance if use_aproxy is enabled.
-        http: HTTP proxy address.
-        https: HTTPS proxy address.
+        http: HTTP proxy address string.
+        http_url: HTTP proxy address url.
+        https: HTTPS proxy address string.
+        https_url: HTTPS proxy address url.
         no_proxy: Comma-separated list of hosts that should not be proxied.
         use_aproxy: Whether aproxy should be used for the runners.
     """
 
-    http: Optional[AnyHttpUrl]
-    https: Optional[AnyHttpUrl]
-    no_proxy: Optional[str]
+    http_url: Optional[AnyHttpUrl] = None
+    https_url: Optional[AnyHttpUrl] = None
+    no_proxy: Optional[str] = None
     use_aproxy: bool = False
+
+    @property
+    def http(self) -> Optional[str]:
+        """Return string version of http url."""
+        return str(self.http_url) if self.http_url else None
+
+    @property
+    def https(self) -> Optional[str]:
+        """Return string version of https url."""
+        return str(self.https_url) if self.https_url else None
 
     @property
     def aproxy_address(self) -> Optional[str]:
         """Return the aproxy address."""
         if self.use_aproxy:
-            proxy_address = self.http or self.https
+            proxy_address = self.http_url or self.https_url
             # assert is only used to make mypy happy
             assert (
                 proxy_address is not None and proxy_address.host is not None
@@ -41,25 +53,20 @@ class ProxyConfig(BaseModel):
             aproxy_address = None
         return aproxy_address
 
-    @validator("use_aproxy")
-    @classmethod
-    def check_use_aproxy(cls, use_aproxy: bool, values: dict) -> bool:
+    @model_validator(mode="after")
+    def check_use_aproxy(self: "ProxyConfig") -> "ProxyConfig":
         """Validate the proxy configuration.
-
-        Args:
-            use_aproxy: Value of use_aproxy variable.
-            values: Values in the pydantic model.
 
         Raises:
             ValueError: if use_aproxy was set but no http/https was passed.
 
         Returns:
-            Validated use_aproxy value.
+            Validated ProxyConfig instance.
         """
-        if use_aproxy and not (values.get("http") or values.get("https")):
+        if self.use_aproxy and not (self.http_url or self.https_url):
             raise ValueError("aproxy requires http or https to be set")
 
-        return use_aproxy
+        return self
 
     def __bool__(self) -> bool:
         """Return whether the proxy config is set.
@@ -67,7 +74,7 @@ class ProxyConfig(BaseModel):
         Returns:
             Whether the proxy config is set.
         """
-        return bool(self.http or self.https)
+        return bool(self.http_url or self.https_url)
 
 
 class SSHDebugConnection(BaseModel):
