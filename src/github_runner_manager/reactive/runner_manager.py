@@ -3,8 +3,13 @@
 
 """Module for reconciling amount of runner and reactive runner processes."""
 import logging
+from dataclasses import dataclass
 
-from github_runner_manager.manager.runner_manager import FlushMode, RunnerManager
+from github_runner_manager.manager.runner_manager import (
+    FlushMode,
+    IssuedMetricEventsStats,
+    RunnerManager,
+)
 from github_runner_manager.reactive import process_manager
 from github_runner_manager.reactive.consumer import get_queue_size
 from github_runner_manager.reactive.types_ import RunnerConfig
@@ -12,9 +17,22 @@ from github_runner_manager.reactive.types_ import RunnerConfig
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ReconcileResult:
+    """The result of the reconciliation.
+
+    Attributes:
+        processes_created: The number of reactive processes created.
+        metrics_stats: The stats of the issued metric events
+    """
+
+    processes_created: int
+    metrics_stats: IssuedMetricEventsStats
+
+
 def reconcile(
     expected_quantity: int, runner_manager: RunnerManager, runner_config: RunnerConfig
-) -> int:
+) -> ReconcileResult:
     """Reconcile runners reactively.
 
     The reconciliation attempts to make the following equation true:

@@ -44,6 +44,7 @@ from github_runner_manager.metrics import runner as runner_metrics
 from github_runner_manager.metrics import storage as metrics_storage
 from github_runner_manager.openstack_cloud.openstack_cloud import OpenstackCloud, OpenstackInstance
 from github_runner_manager.repo_policy_compliance_client import RepoPolicyComplianceClient
+from github_runner_manager.types_ import SystemUserConfig
 from github_runner_manager.types_.github import GitHubOrg
 from github_runner_manager.utilities import retry, set_env_var
 
@@ -110,6 +111,7 @@ class OpenStackRunnerManagerConfig:
         server_config: The configuration for OpenStack server.
         runner_config: The configuration for the GitHub runner.
         service_config: The configuration for supporting services.
+        system_user_config: The user to use for creating metrics storage.
     """
 
     name: str
@@ -118,6 +120,7 @@ class OpenStackRunnerManagerConfig:
     server_config: OpenStackServerConfig | None
     runner_config: GitHubRunnerConfig
     service_config: SupportServiceConfig
+    system_user_config: SystemUserConfig
 
 
 @dataclass

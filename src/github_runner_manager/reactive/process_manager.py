@@ -29,7 +29,6 @@ PIDS_COMMAND_LINE = [
     "--no-headers",
     "--sort=-start_time",
 ]
-UBUNTU_USER = "ubuntu"
 RUNNER_CONFIG_ENV_VAR = "RUNNER_CONFIG"
 
 

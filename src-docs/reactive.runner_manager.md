@@ -8,7 +8,7 @@ Module for reconciling amount of runner and reactive runner processes.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/runner_manager.py#L15"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/runner_manager.py#L33"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `reconcile`
 
@@ -17,7 +17,7 @@ reconcile(
     expected_quantity: int,
     runner_manager: RunnerManager,
     runner_config: RunnerConfig
-) → int
+) → ReconcileResult
 ```
 
 Reconcile runners reactively. 
@@ -52,5 +52,35 @@ In addition to this behaviour, reconciliation also checks the queue at the start
 
 **Returns:**
  The number of reactive processes created. If negative, its absolute value is equal to the number of processes killed. 
+
+
+---
+
+<a href="../src/github_runner_manager/reactive/runner_manager.py#L20"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+
+## <kbd>class</kbd> `ReconcileResult`
+The result of the reconciliation. 
+
+
+
+**Attributes:**
+ 
+ - <b>`processes_created`</b>:  The number of reactive processes created. 
+ - <b>`metrics_stats`</b>:  The stats of the issued metric events 
+
+<a href="../<string>"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+
+### <kbd>method</kbd> `__init__`
+
+```python
+__init__(processes_created: int, metrics_stats: dict[Type[Event], int]) → None
+```
+
+
+
+
+
+
+
 
 

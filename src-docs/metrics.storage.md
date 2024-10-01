@@ -7,9 +7,6 @@ Classes and functions defining the metrics storage.
 
 It contains a protocol and reference implementation. 
 
-**Global Variables**
----------------
-- **FILESYSTEM_OWNER**
 
 ---
 
@@ -18,7 +15,7 @@ It contains a protocol and reference implementation.
 ## <kbd>function</kbd> `create`
 
 ```python
-create(runner_name: str) → MetricsStorage
+create(runner_name: str, system_user_config: SystemUserConfig) → MetricsStorage
 ```
 
 Create metrics storage for the runner. 
@@ -30,6 +27,7 @@ The method is not idempotent and will raise an exception if the storage already 
 **Args:**
  
  - <b>`runner_name`</b>:  The name of the runner. 
+ - <b>`system_user_config`</b>:  The configuration to decide which user to use to create the storage. 
 
 
 
@@ -45,7 +43,7 @@ The method is not idempotent and will raise an exception if the storage already 
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L104"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L105"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `list_all`
 
@@ -63,7 +61,7 @@ List all the metric storages.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L123"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L124"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `get`
 
@@ -93,7 +91,7 @@ Get the metrics storage for the runner.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L142"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L143"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `delete`
 
@@ -118,7 +116,7 @@ Delete the metrics storage for the runner.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L161"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L162"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `move_to_quarantine`
 
