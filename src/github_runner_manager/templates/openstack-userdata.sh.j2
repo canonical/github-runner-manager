@@ -2,7 +2,6 @@
 
 set -e
 
-sudo apt-get update
 hostnamectl set-hostname github-runner
 
 # Write .env contents
@@ -31,6 +30,8 @@ EOF
 systemctl enable nftables.service
 nft -f /etc/nftables.conf
 {% endif %}
+
+sudo apt-get update
 
 adduser ubuntu lxd
 adduser ubuntu adm
