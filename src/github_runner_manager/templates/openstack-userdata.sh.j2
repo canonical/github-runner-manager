@@ -31,6 +31,8 @@ systemctl enable nftables.service
 nft -f /etc/nftables.conf
 {% endif %}
 
+sudo apt-get update
+
 adduser ubuntu lxd
 adduser ubuntu adm
 
