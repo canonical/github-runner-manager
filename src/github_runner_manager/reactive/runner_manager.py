@@ -4,6 +4,7 @@
 """Module for reconciling amount of runner and reactive runner processes."""
 import logging
 
+from github_runner_manager.manager.github_runner_manager import GitHubRunnerState
 from github_runner_manager.manager.runner_manager import FlushMode, RunnerManager
 from github_runner_manager.reactive import process_manager
 from github_runner_manager.reactive.consumer import get_queue_size
@@ -65,7 +66,11 @@ def reconcile(
     if get_queue_size(runner_config.queue) == 0:
         runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
 
-    runners = runner_manager.get_runners()
+    # Only respect runners which are online on GitHub to prevent machines to be just in
+    # construction to be counted and then killed immediately by the process manager.
+    runners = runner_manager.get_runners(
+        github_states=[GitHubRunnerState.IDLE, GitHubRunnerState.BUSY]
+    )
     runner_diff = expected_quantity - len(runners)
 
     if runner_diff >= 0:

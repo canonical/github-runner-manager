@@ -8,7 +8,7 @@ Module for reconciling amount of runner and reactive runner processes.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/runner_manager.py#L15"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/runner_manager.py#L16"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `reconcile`
 
