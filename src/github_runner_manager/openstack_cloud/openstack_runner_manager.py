@@ -42,7 +42,11 @@ from github_runner_manager.manager.runner_manager import HealthState
 from github_runner_manager.metrics import events as metric_events
 from github_runner_manager.metrics import runner as runner_metrics
 from github_runner_manager.metrics import storage as metrics_storage
-from github_runner_manager.openstack_cloud.openstack_cloud import OpenstackCloud, OpenstackInstance
+from github_runner_manager.openstack_cloud.openstack_cloud import (
+    OpenstackCloud,
+    OpenStackCredentials,
+    OpenstackInstance,
+)
 from github_runner_manager.repo_policy_compliance_client import RepoPolicyComplianceClient
 from github_runner_manager.types_.github import GitHubOrg
 from github_runner_manager.utilities import retry, set_env_var
@@ -72,19 +76,6 @@ class _PullFileError(Exception):
 
 
 @dataclass
-class OpenStackCloudConfig:
-    """Configuration for OpenStack cloud authorisation information.
-
-    Attributes:
-        clouds_config: The clouds.yaml.
-        cloud: The cloud name to connect to.
-    """
-
-    clouds_config: dict[str, dict]
-    cloud: str
-
-
-@dataclass
 class OpenStackServerConfig:
     """Configuration for OpenStack server.
 
@@ -106,7 +97,7 @@ class OpenStackRunnerManagerConfig:
     Attributes:
         name: The name of the manager.
         prefix: The prefix of the runner names.
-        cloud_config: The configuration for OpenStack cloud.
+        credentials: The OpenStack authorization information.
         server_config: The configuration for OpenStack server.
         runner_config: The configuration for the GitHub runner.
         service_config: The configuration for supporting services.
@@ -114,7 +105,7 @@ class OpenStackRunnerManagerConfig:
 
     name: str
     prefix: str
-    cloud_config: OpenStackCloudConfig
+    credentials: OpenStackCredentials
     server_config: OpenStackServerConfig | None
     runner_config: GitHubRunnerConfig
     service_config: SupportServiceConfig
@@ -140,7 +131,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         name_prefix: The name prefix of the runners created.
     """
 
-    def __init__(  # pylint: disable=R0913
+    def __init__(
         self,
         config: OpenStackRunnerManagerConfig,
     ) -> None:
@@ -151,13 +142,12 @@ class OpenStackRunnerManager(CloudRunnerManager):
         """
         self._manager_name = config.name
         self._prefix = config.prefix
-        self._cloud_config = config.cloud_config
+        self._credentials = config.credentials
         self._server_config = config.server_config
         self._runner_config = config.runner_config
         self._service_config = config.service_config
         self._openstack_cloud = OpenstackCloud(
-            clouds_config=self._cloud_config.clouds_config,
-            cloud=self._cloud_config.cloud,
+            credentials=self._credentials,
             prefix=self.name_prefix,
         )
 
