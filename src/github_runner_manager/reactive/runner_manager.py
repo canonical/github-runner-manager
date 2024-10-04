@@ -66,7 +66,7 @@ def reconcile(
     if get_queue_size(runner_config.queue) == 0:
         runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
 
-    # Only respect runners which are online on GitHub to prevent machines to be just in
+    # Only count runners which are online on GitHub to prevent machines to be just in
     # construction to be counted and then killed immediately by the process manager.
     runners = runner_manager.get_runners(
         github_states=[GitHubRunnerState.IDLE, GitHubRunnerState.BUSY]
