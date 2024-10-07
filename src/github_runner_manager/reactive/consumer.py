@@ -120,41 +120,41 @@ def consume(
         QueueError: If an error when communicating with the queue occurs.
     """
     try:
-        with Connection(queue_config.mongodb_uri) as conn:
-            with closing(SimpleQueue(conn, queue_config.queue_name)) as simple_queue:
-                with signal_handler(signal.SIGTERM):
-                    msg = simple_queue.get(block=True)
-                    try:
-                        job_details = cast(JobDetails, JobDetails.parse_raw(msg.payload))
-                    except ValidationError as exc:
-                        logger.error("Found invalid job details, will reject the message.")
-                        msg.reject(requeue=False)
-                        raise JobError(f"Invalid job details: {msg.payload}") from exc
-                    logger.info(
-                        "Received job with labels %s and job_url %s",
-                        job_details.labels,
-                        job_details.url,
-                    )
-                    if not _validate_labels(
-                        labels=job_details.labels, supported_labels=supported_labels
-                    ):
-                        logger.error(
-                            "Found unsupported job labels in %s. "
-                            "Will not spawn a runner and reject the message.",
-                            job_details.labels,
-                        )
-                        # We currently do not expect this to happen, but we should handle it.
-                        # We do not want to requeue the message as it will be rejected again.
-                        # This may change in the future when messages for multiple
-                        # flavours are sent to the same queue.
-                        msg.reject(requeue=False)
-                    else:
-                        _spawn_runner(
-                            runner_manager=runner_manager,
-                            job_url=job_details.url,
-                            msg=msg,
-                            github_client=github_client,
-                        )
+        with (
+            Connection(queue_config.mongodb_uri) as conn,
+            closing(SimpleQueue(conn, queue_config.queue_name)) as simple_queue,
+            signal_handler(signal.SIGTERM),
+        ):
+            msg = simple_queue.get(block=True)
+            try:
+                job_details = cast(JobDetails, JobDetails.parse_raw(msg.payload))
+            except ValidationError as exc:
+                logger.error("Found invalid job details, will reject the message.")
+                msg.reject(requeue=False)
+                raise JobError(f"Invalid job details: {msg.payload}") from exc
+            logger.info(
+                "Received job with labels %s and job_url %s",
+                job_details.labels,
+                job_details.url,
+            )
+            if not _validate_labels(labels=job_details.labels, supported_labels=supported_labels):
+                logger.error(
+                    "Found unsupported job labels in %s. "
+                    "Will not spawn a runner and reject the message.",
+                    job_details.labels,
+                )
+                # We currently do not expect this to happen, but we should handle it.
+                # We do not want to requeue the message as it will be rejected again.
+                # This may change in the future when messages for multiple
+                # flavours are sent to the same queue.
+                msg.reject(requeue=False)
+            else:
+                _spawn_runner(
+                    runner_manager=runner_manager,
+                    job_url=job_details.url,
+                    msg=msg,
+                    github_client=github_client,
+                )
     except KombuError as exc:
         raise QueueError("Error when communicating with the queue") from exc
 

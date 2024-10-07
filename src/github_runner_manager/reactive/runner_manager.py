@@ -5,6 +5,7 @@
 import logging
 from dataclasses import dataclass
 
+from github_runner_manager.manager.github_runner_manager import GitHubRunnerState
 from github_runner_manager.manager.runner_manager import (
     FlushMode,
     IssuedMetricEventsStats,
@@ -29,11 +30,12 @@ class ReconcileResult:
     processes_diff: int
     metric_stats: IssuedMetricEventsStats
 
-
 def reconcile(
     expected_quantity: int, runner_manager: RunnerManager, runner_config: RunnerConfig
 ) -> ReconcileResult:
     """Reconcile runners reactively.
+
+
 
     The reconciliation attempts to make the following equation true:
         quantity_of_current_runners + amount_of_reactive_processes_consuming_jobs
@@ -83,7 +85,11 @@ def reconcile(
     if get_queue_size(runner_config.queue) == 0:
         runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
 
-    runners = runner_manager.get_runners()
+    # Only count runners which are online on GitHub to prevent machines to be just in
+    # construction to be counted and then killed immediately by the process manager.
+    runners = runner_manager.get_runners(
+        github_states=[GitHubRunnerState.IDLE, GitHubRunnerState.BUSY]
+    )
     runner_diff = expected_quantity - len(runners)
 
     if runner_diff >= 0:
@@ -91,6 +97,7 @@ def reconcile(
         metric_stats = cleanup_metric_stats
     else:
         delete_metric_stats = runner_manager.delete_runners(-runner_diff)
+        runner_manager.delete_runners(-runner_diff)
         process_quantity = 0
         metric_stats = {
             event_name: delete_metric_stats.get(event_name, 0)

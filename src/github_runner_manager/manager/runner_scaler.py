@@ -137,9 +137,9 @@ class RunnerScaler:
         """
         logger.info("Start reconcile to %s runner", quantity)
 
+        metric_stats = {}
         start_timestamp = time.time()
 
-        metric_stats = {}
         try:
             if self._reactive_config is not None:
                 logger.info(

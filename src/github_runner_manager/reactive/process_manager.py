@@ -30,6 +30,7 @@ PIDS_COMMAND_LINE = [
     "--no-headers",
     "--sort=-start_time",
 ]
+UBUNTU_USER = "ubuntu"
 RUNNER_CONFIG_ENV_VAR = "RUNNER_CONFIG"
 
 
@@ -89,6 +90,15 @@ def _get_pids() -> list[int]:
     result = secure_run_subprocess(cmd=PIDS_COMMAND_LINE)
     if result.returncode != 0:
         raise ReactiveRunnerError("Failed to get list of processes")
+
+    # stdout will look like
+    #
+    # ps axo cmd:57,pid --no-headers --sort=-start_time         2302635
+    # -bash                                                     2302498
+    # /bin/sh -c /usr/bin/python3 -m github_runner_manager.reac 1757306
+    # /usr/bin/python3 -m github_runner_manager.reactive.runner 1757308
+
+    # we filter for the command line of the reactive runner processes and extract the PID
 
     return [
         int(line.rstrip().rsplit(maxsplit=1)[-1])

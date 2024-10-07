@@ -19,7 +19,6 @@ from github_runner_manager.reactive.types_ import QueueConfig, RunnerConfig
 TEST_METRIC_EVENTS = {RunnerStart: 1, RunnerStop: 2}
 TEST_DELETE_RUNNER_METRIC_EVENTS = {RunnerStart: 1, RunnerStop: 1}
 
-
 @pytest.fixture(name="runner_manager")
 def runner_manager_fixture() -> MagicMock:
     """Return a mock of the RunnerManager."""
@@ -141,7 +140,6 @@ def test_reconcile_flushes_idle_runners_when_queue_is_empty(
     reconcile(quantity, runner_manager, runner_config)
 
     runner_manager.flush_runners.assert_called_once_with(FlushMode.FLUSH_IDLE)
-
 
 @pytest.mark.usefixtures("reactive_process_manager")
 @pytest.mark.parametrize(
@@ -284,9 +282,9 @@ def test_reconcile_returns_issued_metrics(
 
     assert result.metric_stats == expected_metrics
 
-
 def _set_queue_non_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set the queue size to a random value between 1 and 10.
+    result = reconcile(desired_quantity, runner_manager, runner_config)
 
     Args:
         monkeypatch: The pytest monkeypatch fixture used to patch the get_queue_size function.

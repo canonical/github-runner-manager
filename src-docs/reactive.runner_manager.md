@@ -22,6 +22,10 @@ reconcile(
 
 Reconcile runners reactively. 
 
+
+
+
+
 The reconciliation attempts to make the following equation true:  quantity_of_current_runners + amount_of_reactive_processes_consuming_jobs  == expected_quantity 
 
 A few examples: 
@@ -56,7 +60,7 @@ In addition to this behaviour, reconciliation also checks the queue at the start
 
 ---
 
-<a href="../src/github_runner_manager/reactive/runner_manager.py#L20"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/runner_manager.py#L21"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `ReconcileResult`
 The result of the reconciliation. 
