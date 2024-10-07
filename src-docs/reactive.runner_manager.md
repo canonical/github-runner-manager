@@ -8,7 +8,7 @@ Module for reconciling amount of runner and reactive runner processes.
 
 ---
 
-<a href="../src/github_runner_manager/reactive/runner_manager.py#L33"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/reactive/runner_manager.py#L34"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `reconcile`
 
@@ -21,10 +21,6 @@ reconcile(
 ```
 
 Reconcile runners reactively. 
-
-
-
-
 
 The reconciliation attempts to make the following equation true:  quantity_of_current_runners + amount_of_reactive_processes_consuming_jobs  == expected_quantity 
 

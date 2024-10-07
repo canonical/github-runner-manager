@@ -30,12 +30,11 @@ class ReconcileResult:
     processes_diff: int
     metric_stats: IssuedMetricEventsStats
 
+
 def reconcile(
     expected_quantity: int, runner_manager: RunnerManager, runner_config: RunnerConfig
 ) -> ReconcileResult:
     """Reconcile runners reactively.
-
-
 
     The reconciliation attempts to make the following equation true:
         quantity_of_current_runners + amount_of_reactive_processes_consuming_jobs
@@ -97,7 +96,6 @@ def reconcile(
         metric_stats = cleanup_metric_stats
     else:
         delete_metric_stats = runner_manager.delete_runners(-runner_diff)
-        runner_manager.delete_runners(-runner_diff)
         process_quantity = 0
         metric_stats = {
             event_name: delete_metric_stats.get(event_name, 0)
