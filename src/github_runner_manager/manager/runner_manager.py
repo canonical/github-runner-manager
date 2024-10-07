@@ -254,7 +254,11 @@ class RunnerManager:
     def _spawn_runners(
         create_runner_args: Sequence["RunnerManager._CreateRunnerArgs"],
     ) -> tuple[InstanceId, ...]:
-        """Parallel spawn of runners.
+        """Spawn runners in parallel using multiprocessing.
+
+        Multiprocessing is only used if there are more than one runner to spawn. Otherwise,
+        the runner is created in the current process, which is required for reactive,
+        where we don't assume to spawn another process inside the reactive process.
 
         The length of the create_runner_args is number _create_runner invocation, and therefore the
         number of runner spawned.
@@ -263,10 +267,31 @@ class RunnerManager:
             create_runner_args: List of arg for invoking _create_runner method.
 
         Returns:
-            A list of instance ID of runner spawned.
+            A tuple of instance ID's of runners spawned.
         """
         num = len(create_runner_args)
 
+        if num == 1:
+            return (RunnerManager._create_runner(create_runner_args[0]),)
+
+        return RunnerManager._spawn_runners_using_multiprocessing(create_runner_args, num)
+
+    @staticmethod
+    def _spawn_runners_using_multiprocessing(
+        create_runner_args: Sequence["RunnerManager._CreateRunnerArgs"], num: int
+    ) -> tuple[InstanceId, ...]:
+        """Parallel spawn of runners.
+
+        The length of the create_runner_args is number _create_runner invocation, and therefore the
+        number of runner spawned.
+
+        Args:
+            create_runner_args: List of arg for invoking _create_runner method.
+            num: The number of runners to spawn.
+
+        Returns:
+            A tuple of instance ID's of runners spawned.
+        """
         instance_id_list = []
         with Pool(processes=min(num, 10)) as pool:
             jobs = pool.imap_unordered(

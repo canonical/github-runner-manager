@@ -4,15 +4,15 @@
 import secrets
 from contextlib import closing
 from datetime import datetime, timezone
-from queue import Empty
 from random import randint
 from unittest.mock import MagicMock
 
 import pytest
 from kombu import Connection, Message
+from kombu.exceptions import KombuError
 
 from github_runner_manager.reactive import consumer
-from github_runner_manager.reactive.consumer import JobError, Labels
+from github_runner_manager.reactive.consumer import JobError, Labels, get_queue_size
 from github_runner_manager.reactive.types_ import QueueConfig
 from github_runner_manager.types_.github import JobConclusion, JobInfo, JobStatus
 
@@ -48,7 +48,7 @@ def test_consume(labels: Labels, supported_labels: Labels, queue_config: QueueCo
     """
     arrange: A job with valid labels placed in the message queue which has not yet been picked up.
     act: Call consume.
-    assert: A runner is created and the message is acknowledged.
+    assert: A runner is created and the message is removed from the queue.
     """
     job_details = consumer.JobDetails(
         labels=labels,
@@ -72,9 +72,7 @@ def test_consume(labels: Labels, supported_labels: Labels, queue_config: QueueCo
 
     runner_manager_mock.create_runners.assert_called_once_with(1)
 
-    # Ensure message has been acknowledged by assuming an Empty exception is raised
-    with pytest.raises(Empty):
-        _consume_from_queue(queue_config.queue_name)
+    _assert_queue_is_empty(queue_config.queue_name)
 
 
 def test_consume_reject_if_job_gets_not_picked_up(queue_config: QueueConfig):
@@ -106,6 +104,56 @@ def test_consume_reject_if_job_gets_not_picked_up(queue_config: QueueConfig):
     assert msg.payload == job_details.json()
 
 
+def test_consume_raises_queue_error(monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig):
+    """
+    arrange: A mocked SimpleQueue that raises a KombuError.
+    act: Call consume.
+    assert: A QueueError is raised.
+    """
+    monkeypatch.setattr(consumer, "SimpleQueue", MagicMock(side_effect=KombuError))
+    with pytest.raises(consumer.QueueError) as exc_info:
+        consumer.consume(
+            queue_config=queue_config,
+            runner_manager=MagicMock(spec=consumer.RunnerManager),
+            github_client=MagicMock(spec=consumer.GithubClient),
+            supported_labels={"label1", "label2"},
+        )
+    assert "Error when communicating with the queue" in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "size",
+    [
+        pytest.param(0, id="empty queue"),
+        pytest.param(1, id="queue with 1 item"),
+        pytest.param(randint(2, 10), id="queue with multiple items"),
+    ],
+)
+def test_get_queue_size(size: int, queue_config: QueueConfig):
+    """
+    arrange: A queue with a given size.
+    act: Call get_queue_size.
+    assert: The size of the queue is returned.
+    """
+    for _ in range(size):
+        _put_in_queue("test", queue_config.queue_name)
+    assert get_queue_size(queue_config) == size
+
+
+def test_get_queue_size_raises_queue_error(
+    monkeypatch: pytest.MonkeyPatch, queue_config: QueueConfig
+):
+    """
+    arrange: A queue with a given size and a mocked SimpleQueue that raises a KombuError.
+    act: Call get_queue_size.
+    assert: A QueueError is raised.
+    """
+    monkeypatch.setattr(consumer, "SimpleQueue", MagicMock(side_effect=KombuError))
+    with pytest.raises(consumer.QueueError) as exc_info:
+        get_queue_size(queue_config)
+    assert "Error when communicating with the queue" in str(exc_info.value)
+
+
 @pytest.mark.parametrize(
     "job_str",
     [
@@ -127,7 +175,7 @@ def test_job_details_validation_error(job_str: str, queue_config: QueueConfig):
     """
     arrange: A job placed in the message queue with invalid details.
     act: Call consume
-    assert: A JobError is raised and the message is requeued.
+    assert: A JobError is raised and the message is not requeued.
     """
     queue_name = queue_config.queue_name
     _put_in_queue(job_str, queue_name)
@@ -145,9 +193,7 @@ def test_job_details_validation_error(job_str: str, queue_config: QueueConfig):
         )
     assert "Invalid job details" in str(exc_info.value)
 
-    # Ensure message has been requeued by reconsuming it
-    msg = _consume_from_queue(queue_name)
-    assert msg.payload == job_str
+    _assert_queue_is_empty(queue_config.queue_name)
 
 
 @pytest.mark.parametrize(
@@ -166,7 +212,7 @@ def test_consume_reject_if_labels_not_supported(
     """
     arrange: A job placed in the message queue with unsupported labels.
     act: Call consume.
-    assert: The message is requeued.
+    assert: No runner is spawned and the message is removed from the queue.
     """
     job_details = consumer.JobDetails(
         labels=labels,
@@ -188,9 +234,8 @@ def test_consume_reject_if_labels_not_supported(
         supported_labels=supported_labels,
     )
 
-    # Ensure message has been requeued by reconsuming it
-    msg = _consume_from_queue(queue_config.queue_name)
-    assert msg.payload == job_details.json()
+    runner_manager_mock.create_runners.assert_not_called()
+    _assert_queue_is_empty(queue_config.queue_name)
 
 
 def _create_job_info(status: JobStatus) -> JobInfo:
@@ -235,3 +280,14 @@ def _consume_from_queue(queue_name: str) -> Message:
     with Connection(IN_MEMORY_URI) as conn:
         with closing(conn.SimpleQueue(queue_name)) as simple_queue:
             return simple_queue.get(block=False)
+
+
+def _assert_queue_is_empty(queue_name: str) -> None:
+    """Assert that the queue is empty.
+
+    Args:
+        queue_name: The name of the queue.
+    """
+    with Connection(IN_MEMORY_URI) as conn:
+        with closing(conn.SimpleQueue(queue_name)) as simple_queue:
+            assert simple_queue.qsize() == 0

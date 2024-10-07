@@ -11,7 +11,7 @@ from github_runner_manager.github_client import GithubClient
 from github_runner_manager.manager.runner_manager import RunnerManager
 from github_runner_manager.openstack_cloud.openstack_runner_manager import OpenStackRunnerManager
 from github_runner_manager.reactive.consumer import consume
-from github_runner_manager.reactive.runner_manager import RUNNER_CONFIG_ENV_VAR
+from github_runner_manager.reactive.process_manager import RUNNER_CONFIG_ENV_VAR
 from github_runner_manager.reactive.types_ import RunnerConfig
 
 
