@@ -120,9 +120,7 @@ def consume(
         QueueError: If an error when communicating with the queue occurs.
     """
     try:
-        with Connection(queue_config.mongodb_uri) as conn:
-            with closing(SimpleQueue(conn, queue_config.queue_name)) as simple_queue:
-                with signal_handler(signal.SIGTERM):
+with Connection(queue_config.mongodb_uri) as conn, closing(SimpleQueue(conn, queue_config.queue_name)) as simple_queue, with signal_handler(signal.SIGTERM):
                     msg = simple_queue.get(block=True)
                     try:
                         job_details = cast(JobDetails, JobDetails.parse_raw(msg.payload))
