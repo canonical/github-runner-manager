@@ -15,7 +15,7 @@ Classes and function to extract the metrics from storage and issue runner metric
 
 ---
 
-<a href="../src/github_runner_manager/metrics/runner.py#L110"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/runner.py#L111"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `extract`
 
@@ -51,7 +51,7 @@ In order to avoid DoS attacks, the file size is also checked.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/runner.py#L146"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/runner.py#L147"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `issue_events`
 
@@ -166,7 +166,7 @@ Metrics for a runner.
 
 **Attributes:**
  
- - <b>`installation_start_timestamp`</b>:  The UNIX time stamp of the time at which the runner installation started. 
+ - <b>`installation_start_timestamp`</b>:  The UNIX time stamp of the time at which the runner  installation started. 
  - <b>`installed_timestamp`</b>:  The UNIX time stamp of the time at which the runner was installed. 
  - <b>`pre_job`</b>:  The metrics for the pre-job phase. 
  - <b>`post_job`</b>:  The metrics for the post-job phase. 

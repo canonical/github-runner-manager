@@ -93,7 +93,8 @@ class RunnerMetrics(BaseModel):
     """Metrics for a runner.
 
     Attributes:
-        installation_start_timestamp: The UNIX time stamp of the time at which the runner installation started.
+        installation_start_timestamp: The UNIX time stamp of the time at which the runner
+            installation started.
         installed_timestamp: The UNIX time stamp of the time at which the runner was installed.
         pre_job: The metrics for the pre-job phase.
         post_job: The metrics for the post-job phase.
@@ -158,15 +159,13 @@ def issue_events(
     Returns:
         A set of issued events.
     """
-    runner_start_event = _create_runner_start(runner_metrics, flavor, job_metrics)
-
     issued_events = set()
 
     if runner_metrics.installation_start_timestamp:
         try:
             metric_events.issue_event(
-                event=metric_events.RunnerInstalled(
-                    timestamp=runner_metrics.installation_start_timestamp,
+                metric_events.RunnerInstalled(
+                    timestamp=runner_metrics.installed_timestamp,
                     flavor=flavor,
                     duration=runner_metrics.installed_timestamp
                     - runner_metrics.installation_start_timestamp,
@@ -179,9 +178,12 @@ def issue_events(
         else:
             issued_events.add(metric_events.RunnerInstalled)
 
-        # Return to not issuing Runner{Start,Stop} metrics if RunnerInstalled metric could not be issued.
+        # Return to not issuing Runner{Start,Stop} metrics if RunnerInstalled metric
+        # could not be issued.
         if not issued_events:
             return issued_events
+
+    runner_start_event = _create_runner_start(runner_metrics, flavor, job_metrics)
 
     try:
         metric_events.issue_event(runner_start_event)
@@ -441,6 +443,7 @@ def _inspect_file_sizes(metrics_storage: MetricsStorage) -> tuple[Path, ...]:
         metrics_storage.path.joinpath(PRE_JOB_METRICS_FILE_NAME),
         metrics_storage.path.joinpath(POST_JOB_METRICS_FILE_NAME),
         metrics_storage.path.joinpath(RUNNER_INSTALLED_TS_FILE_NAME),
+        metrics_storage.path.joinpath(RUNNER_INSTALLATION_START_TS_FILE_NAME),
     ]
 
     return tuple(
