@@ -308,16 +308,16 @@ class OpenStackRunnerManager(CloudRunnerManager):
             return None
 
         logger.debug(
-            "Extract metrics from runner before deletion %s %s", instance_id, instance.server_name
-        )
-        extracted_metrics = runner_metrics.extract(
-            metrics_storage_manager=metrics_storage, runners=set([instance.server_name])
-        )
-        logger.debug(
             "Metrics extracted, deleting instance %s %s", instance_id, instance.server_name
         )
         self._delete_runner(instance, remove_token)
         logger.debug("Instance deleted successfully %s %s", instance_id, instance.server_name)
+        logger.debug(
+            "Extract metrics for runner %s %s", instance_id, instance.server_name
+        )
+        extracted_metrics = runner_metrics.extract(
+            metrics_storage_manager=metrics_storage, runners=set([instance.server_name])
+        )
         return next(extracted_metrics, None)
 
     def flush_runners(
@@ -363,17 +363,17 @@ class OpenStackRunnerManager(CloudRunnerManager):
         logger.debug("Getting runner healths for cleanup.")
         runners = self._get_runners_health()
         healthy_runner_names = [runner.server_name for runner in runners.healthy]
-        logger.debug("Extracting metrics prior to runner deletion.")
-        metrics = runner_metrics.extract(
-            metrics_storage_manager=metrics_storage, runners=set(healthy_runner_names)
-        )
+
         logger.debug("Deleting runners.")
         for runner in runners.unhealthy:
             self._delete_runner(runner, remove_token)
-
         logger.debug("Cleaning up runner resources.")
         self._openstack_cloud.cleanup()
         logger.debug("Cleanup completed successfully.")
+        logger.debug("Extracting metrics.")
+        metrics = runner_metrics.extract(
+            metrics_storage_manager=metrics_storage, runners=set(healthy_runner_names)
+        )
         return metrics
 
     def _delete_runner(self, instance: OpenstackInstance, remove_token: str) -> None:
