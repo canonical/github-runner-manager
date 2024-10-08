@@ -18,8 +18,8 @@ from github_runner_manager.errors import (
     GetMetricsStorageError,
     QuarantineMetricsStorageError,
 )
+from github_runner_manager.types_ import SystemUserConfig
 
-FILESYSTEM_OWNER = "ubuntu:ubuntu"
 FILESYSTEM_BASE_PATH = Path("/home/ubuntu/runner-fs")
 FILESYSTEM_QUARANTINE_PATH = Path("/home/ubuntu/runner-fs-quarantine")
 
@@ -68,7 +68,7 @@ def _get_runner_fs_path(runner_name: str) -> Path:
     return FILESYSTEM_BASE_PATH / runner_name
 
 
-def create(runner_name: str) -> MetricsStorage:
+def create(runner_name: str, system_user_config: SystemUserConfig) -> MetricsStorage:
     """Create metrics storage for the runner.
 
     The method is not idempotent and will raise an exception
@@ -76,6 +76,7 @@ def create(runner_name: str) -> MetricsStorage:
 
     Args:
         runner_name: The name of the runner.
+        system_user_config: The configuration to decide which user to use to create the storage.
 
     Returns:
         The metrics storage object.
@@ -85,7 +86,28 @@ def create(runner_name: str) -> MetricsStorage:
     """
     try:
         FILESYSTEM_BASE_PATH.mkdir(exist_ok=True)
+        shutil.chown(
+            FILESYSTEM_BASE_PATH, user=system_user_config.user, group=system_user_config.group
+        )
+        logger.debug(
+            "Changed ownership of %s to %s:%s",
+            FILESYSTEM_BASE_PATH,
+            system_user_config.user,
+            system_user_config.group,
+        )
         FILESYSTEM_QUARANTINE_PATH.mkdir(exist_ok=True)
+        shutil.chown(
+            FILESYSTEM_QUARANTINE_PATH,
+            user=system_user_config.user,
+            group=system_user_config.group,
+        )
+        logger.debug(
+            "Changed ownership of %s to %s:%s",
+            FILESYSTEM_QUARANTINE_PATH,
+            system_user_config.user,
+            system_user_config.group,
+        )
+
     except OSError as exc:
         raise CreateMetricsStorageError("Failed to create metrics storage directories") from exc
 

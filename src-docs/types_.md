@@ -102,3 +102,21 @@ Configuration for the repo policy compliance service.
 
 
 
+---
+
+<a href="../src/github_runner_manager/types_/__init__.py#L101"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+
+## <kbd>class</kbd> `SystemUserConfig`
+Configuration for which user to use when spawning processes or accessing resources. 
+
+
+
+**Attributes:**
+ 
+ - <b>`user`</b>:  The user to choose when spawning processes or accessing resources. 
+ - <b>`group`</b>:  The group to choose when spawning processes or accessing resources. 
+
+
+
+
+

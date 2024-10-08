@@ -1,8 +1,11 @@
 #  Copyright 2024 Canonical Ltd.
 #  See LICENSE file for licensing details.
+import os
 import secrets
 import tarfile
+from grp import getgrgid
 from pathlib import Path
+from pwd import getpwuid
 
 import pytest
 
@@ -14,6 +17,14 @@ from github_runner_manager.errors import (
 )
 from github_runner_manager.metrics import storage
 from github_runner_manager.metrics.storage import MetricsStorage
+from github_runner_manager.types_ import SystemUserConfig
+
+# We assume the process running the tests is running as a user
+# that can write to the temporary directory.
+TEST_SYSTEM_USER_CONFIG = SystemUserConfig(
+    user=(passwd := getpwuid(os.getuid())).pw_name,
+    group=getgrgid(passwd.pw_gid).gr_name,
+)
 
 
 @pytest.fixture(autouse=True, name="filesystem_paths")
@@ -34,7 +45,7 @@ def test_create_creates_directory():
     """
     runner_name = secrets.token_hex(16)
 
-    fs = storage.create(runner_name)
+    fs = storage.create(runner_name, TEST_SYSTEM_USER_CONFIG)
 
     assert fs.path.exists()
     assert fs.path.is_dir()
@@ -47,10 +58,10 @@ def test_create_raises_exception_if_already_exists():
     assert: The expected exception is raised.
     """
     runner_name = secrets.token_hex(16)
-    storage.create(runner_name)
+    storage.create(runner_name, TEST_SYSTEM_USER_CONFIG)
 
     with pytest.raises(CreateMetricsStorageError):
-        storage.create(runner_name)
+        storage.create(runner_name, TEST_SYSTEM_USER_CONFIG)
 
 
 def test_list_all():
@@ -61,7 +72,7 @@ def test_list_all():
     """
     runner_names = [secrets.token_hex(16) for _ in range(3)]
     for runner_name in runner_names:
-        storage.create(runner_name)
+        storage.create(runner_name, TEST_SYSTEM_USER_CONFIG)
 
     fs_list = list(storage.list_all())
 
@@ -89,7 +100,7 @@ def test_delete():
     assert: The storage is deleted.
     """
     runner_name = secrets.token_hex(16)
-    storage.create(runner_name)
+    storage.create(runner_name, TEST_SYSTEM_USER_CONFIG)
 
     storage.delete(runner_name)
 
@@ -117,7 +128,7 @@ def test_get():
     """
     runner_name = secrets.token_hex(16)
 
-    storage.create(runner_name)
+    storage.create(runner_name, TEST_SYSTEM_USER_CONFIG)
     ms = storage.get(runner_name)
 
     assert isinstance(ms, MetricsStorage)
@@ -143,7 +154,7 @@ def test_quarantine(filesystem_paths: dict[str, Path], tmp_path: Path):
     assert: The storage is moved to the quarantine.
     """
     runner_name = secrets.token_hex(16)
-    ms = storage.create(runner_name)
+    ms = storage.create(runner_name, TEST_SYSTEM_USER_CONFIG)
     ms.path.joinpath("test.txt").write_text("foo bar")
 
     storage.move_to_quarantine(storage, runner_name)

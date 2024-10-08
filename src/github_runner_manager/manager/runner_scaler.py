@@ -44,6 +44,19 @@ class RunnerInfo:
     busy_runners: tuple[str, ...]
 
 
+@dataclass
+class _ReconcileResult:
+    """The result of the reconcile.
+
+    Attributes:
+        runner_diff: The number of runners created/removed.
+        metric_stats: The metric stats.
+    """
+
+    runner_diff: int
+    metric_stats: IssuedMetricEventsStats
+
+
 class RunnerScaler:
     """Manage the reconcile of runners."""
 
@@ -120,47 +133,29 @@ class RunnerScaler:
             quantity: The number of intended runners.
 
         Returns:
-            The Change in number of runners.
+            The Change in number of runners or reactive processes.
         """
         logger.info("Start reconcile to %s runner", quantity)
-
-        if self._reactive_config is not None:
-            logger.info("Reactive configuration detected, going into experimental reactive mode.")
-            return reactive_runner_manager.reconcile(
-                expected_quantity=quantity,
-                runner_manager=self._manager,
-                runner_config=self._reactive_config,
-            )
 
         metric_stats = {}
         start_timestamp = time.time()
 
         try:
-            delete_metric_stats = None
-            metric_stats = self._manager.cleanup()
-            runners = self._manager.get_runners()
-            logger.info("Reconcile runners from %s to %s", len(runners), quantity)
-            runner_diff = quantity - len(runners)
-            if runner_diff > 0:
-                try:
-                    self._manager.create_runners(runner_diff)
-                except MissingServerConfigError:
-                    logging.exception(
-                        "Unable to spawn runner due to missing server configuration, "
-                        "such as, image."
-                    )
-            elif runner_diff < 0:
-                delete_metric_stats = self._manager.delete_runners(-runner_diff)
+            if self._reactive_config is not None:
+                logger.info(
+                    "Reactive configuration detected, going into experimental reactive mode."
+                )
+                reconcile_result = reactive_runner_manager.reconcile(
+                    expected_quantity=quantity,
+                    runner_manager=self._manager,
+                    runner_config=self._reactive_config,
+                )
+                reconcile_diff = reconcile_result.processes_diff
+                metric_stats = reconcile_result.metric_stats
             else:
-                logger.info("No changes to the number of runners.")
-
-            # Merge the two metric stats.
-            if delete_metric_stats is not None:
-                metric_stats = {
-                    event_name: delete_metric_stats.get(event_name, 0)
-                    + metric_stats.get(event_name, 0)
-                    for event_name in set(delete_metric_stats) | set(metric_stats)
-                }
+                reconcile_result = self._reconcile_non_reactive(quantity)
+                reconcile_diff = reconcile_result.runner_diff
+                metric_stats = reconcile_result.metric_stats
         finally:
             runner_list = self._manager.get_runners()
             self._log_runners(runner_list)
@@ -169,7 +164,42 @@ class RunnerScaler:
                 start_timestamp, end_timestamp, metric_stats, runner_list
             )
 
-        return runner_diff
+        return reconcile_diff
+
+    def _reconcile_non_reactive(self, expected_quantity: int) -> _ReconcileResult:
+        """Reconcile the quantity of runners in non-reactive mode.
+
+        Args:
+            expected_quantity: The number of intended runners.
+
+        Returns:
+            The reconcile result.
+        """
+        delete_metric_stats = None
+        metric_stats = self._manager.cleanup()
+        runners = self._manager.get_runners()
+        logger.info("Reconcile runners from %s to %s", len(runners), expected_quantity)
+        runner_diff = expected_quantity - len(runners)
+        if runner_diff > 0:
+            try:
+                self._manager.create_runners(runner_diff)
+            except MissingServerConfigError:
+                logging.exception(
+                    "Unable to spawn runner due to missing server configuration, "
+                    "such as, image."
+                )
+        elif runner_diff < 0:
+            delete_metric_stats = self._manager.delete_runners(-runner_diff)
+        else:
+            logger.info("No changes to the number of runners.")
+        # Merge the two metric stats.
+        if delete_metric_stats is not None:
+            metric_stats = {
+                event_name: delete_metric_stats.get(event_name, 0)
+                + metric_stats.get(event_name, 0)
+                for event_name in set(delete_metric_stats) | set(metric_stats)
+            }
+        return _ReconcileResult(runner_diff=runner_diff, metric_stats=metric_stats)
 
     @staticmethod
     def _log_runners(runner_list: tuple[RunnerInstance]) -> None:
@@ -223,23 +253,25 @@ class RunnerScaler:
             metric_stats: The metric stats.
             runner_list: The list of runners.
         """
-        idle_runners = [
-            runner for runner in runner_list if runner.github_state == GitHubRunnerState.IDLE
-        ]
-        offline_healthy_runners = [
-            runner
+        idle_runners = {
+            runner.name for runner in runner_list if runner.github_state == GitHubRunnerState.IDLE
+        }
+
+        offline_healthy_runners = {
+            runner.name
             for runner in runner_list
             if runner.github_state == GitHubRunnerState.OFFLINE
             and runner.health == HealthState.HEALTHY
-        ]
+        }
+        available_runners = idle_runners | offline_healthy_runners
+        active_runners = {
+            runner.name for runner in runner_list if runner.github_state == GitHubRunnerState.BUSY
+        }
+        logger.info("Current available runners (idle + healthy offline): %s", available_runners)
+        logger.info("Current active runners: %s", active_runners)
 
         try:
-            available_runners = set(runner.name for runner in idle_runners) | set(
-                runner.name for runner in offline_healthy_runners
-            )
-            logger.info(
-                "Current available runners (idle + healthy offline): %s", available_runners
-            )
+
             metric_events.issue_event(
                 metric_events.Reconciliation(
                     timestamp=time.time(),
@@ -247,6 +279,7 @@ class RunnerScaler:
                     crashed_runners=metric_stats.get(metric_events.RunnerStart, 0)
                     - metric_stats.get(metric_events.RunnerStop, 0),
                     idle_runners=len(available_runners),
+                    active_runners=len(active_runners),
                     duration=end_timestamp - start_timestamp,
                 )
             )
