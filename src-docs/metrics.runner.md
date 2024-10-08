@@ -10,11 +10,12 @@ Classes and function to extract the metrics from storage and issue runner metric
 - **FILE_SIZE_BYTES_LIMIT**
 - **PRE_JOB_METRICS_FILE_NAME**
 - **POST_JOB_METRICS_FILE_NAME**
+- **RUNNER_INSTALLATION_START_TS_FILE_NAME**
 - **RUNNER_INSTALLED_TS_FILE_NAME**
 
 ---
 
-<a href="../src/github_runner_manager/metrics/runner.py#L107"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/runner.py#L110"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `extract`
 
@@ -50,7 +51,7 @@ In order to avoid DoS attacks, the file size is also checked.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/runner.py#L143"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/runner.py#L146"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `issue_events`
 
@@ -80,7 +81,7 @@ Issue the metrics events for a runner.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/runner.py#L35"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/runner.py#L36"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `PreJobMetrics`
 Metrics for the pre-job phase of a runner. 
@@ -101,7 +102,7 @@ Metrics for the pre-job phase of a runner.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/runner.py#L53"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/runner.py#L54"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `PostJobStatus`
 The status of the post-job phase of a runner. 
@@ -120,7 +121,7 @@ The status of the post-job phase of a runner.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/runner.py#L67"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/runner.py#L68"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `CodeInformation`
 Information about a status code. 
@@ -137,7 +138,7 @@ Information about a status code.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/runner.py#L77"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/runner.py#L78"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `PostJobMetrics`
 Metrics for the post-job phase of a runner. 
@@ -156,7 +157,7 @@ Metrics for the post-job phase of a runner.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/runner.py#L91"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/runner.py#L92"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `RunnerMetrics`
 Metrics for a runner. 
@@ -165,6 +166,7 @@ Metrics for a runner.
 
 **Attributes:**
  
+ - <b>`installation_start_timestamp`</b>:  The UNIX time stamp of the time at which the runner installation started. 
  - <b>`installed_timestamp`</b>:  The UNIX time stamp of the time at which the runner was installed. 
  - <b>`pre_job`</b>:  The metrics for the pre-job phase. 
  - <b>`post_job`</b>:  The metrics for the post-job phase. 

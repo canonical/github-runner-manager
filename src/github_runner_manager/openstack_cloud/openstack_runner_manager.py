@@ -21,7 +21,6 @@ from fabric import Connection as SSHConnection
 from github_runner_manager.errors import (
     CreateMetricsStorageError,
     GetMetricsStorageError,
-    IssueMetricEventError,
     KeyfileError,
     MissingServerConfigError,
     OpenStackError,
@@ -39,7 +38,6 @@ from github_runner_manager.manager.cloud_runner_manager import (
     SupportServiceConfig,
 )
 from github_runner_manager.manager.runner_manager import HealthState
-from github_runner_manager.metrics import events as metric_events
 from github_runner_manager.metrics import runner as runner_metrics
 from github_runner_manager.metrics import storage as metrics_storage
 from github_runner_manager.openstack_cloud.openstack_cloud import OpenstackCloud, OpenstackInstance
@@ -197,6 +195,8 @@ class OpenStackRunnerManager(CloudRunnerManager):
         start_timestamp = time.time()
         instance_id = OpenStackRunnerManager._generate_instance_id()
         instance_name = self._openstack_cloud.get_server_name(instance_id=instance_id)
+        self._init_metrics_storage(name=instance_name, install_start_timestamp=start_timestamp)
+
         cloud_init = self._generate_cloud_init(
             instance_name=instance_name, registration_token=registration_token
         )
@@ -216,15 +216,6 @@ class OpenStackRunnerManager(CloudRunnerManager):
         logger.debug("Waiting for runner process to be running: %s", instance.server_name)
         self._wait_runner_running(instance)
 
-        logger.debug("Issuing runner installed metric: %s", instance.server_name)
-        end_timestamp = time.time()
-        self._issue_runner_installed_metric(
-            name=instance_name,
-            flavor=self._config.name,
-            install_start_timestamp=start_timestamp,
-            install_end_timestamp=end_timestamp,
-        )
-        logger.debug("Runner installed metric complete: %s", instance.server_name)
         return instance_id
 
     def get_runner(self, instance_id: InstanceId) -> CloudRunnerInstance | None:
@@ -312,9 +303,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         )
         self._delete_runner(instance, remove_token)
         logger.debug("Instance deleted successfully %s %s", instance_id, instance.server_name)
-        logger.debug(
-            "Extract metrics for runner %s %s", instance_id, instance.server_name
-        )
+        logger.debug("Extract metrics for runner %s %s", instance_id, instance.server_name)
         extracted_metrics = runner_metrics.extract(
             metrics_storage_manager=metrics_storage, runners=set([instance.server_name])
         )
@@ -744,32 +733,17 @@ class OpenStackRunnerManager(CloudRunnerManager):
         """
         return secrets.token_hex(12)
 
-    def _issue_runner_installed_metric(
-        self,
-        name: str,
-        flavor: str,
-        install_start_timestamp: float,
-        install_end_timestamp: float,
-    ) -> None:
-        """Issue metric for runner installed event.
+    def _init_metrics_storage(self, name: str, install_start_timestamp: float) -> None:
+        """Create metrics storage for runner.
+
+        An error will be logged if the storage cannot be created.
+        It is assumed that the code will not be able to issue metrics for this runner
+        and not fail for other operations.
 
         Args:
             name: The name of the runner.
-            flavor: The flavor of the runner.
             install_start_timestamp: The timestamp of installation start.
-            install_end_timestamp: The timestamp of installation end.
         """
-        try:
-            metric_events.issue_event(
-                event=metric_events.RunnerInstalled(
-                    timestamp=install_start_timestamp,
-                    flavor=flavor,
-                    duration=install_end_timestamp - install_start_timestamp,
-                )
-            )
-        except IssueMetricEventError:
-            logger.exception("Failed to issue RunnerInstalled metric")
-
         try:
             storage = metrics_storage.create(
                 runner_name=name, system_user_config=self._system_user_config
@@ -782,13 +756,13 @@ class OpenStackRunnerManager(CloudRunnerManager):
             )
         else:
             try:
-                (storage.path / runner_metrics.RUNNER_INSTALLED_TS_FILE_NAME).write_text(
-                    str(install_end_timestamp), encoding="utf-8"
+                (storage.path / runner_metrics.RUNNER_INSTALLATION_START_TS_FILE_NAME).write_text(
+                    str(install_start_timestamp), encoding="utf-8"
                 )
             except FileNotFoundError:
                 logger.exception(
-                    "Failed to write runner-installed.timestamp into metrics storage "
-                    "for runner %s, will not be able to issue all metrics.",
+                    f"Failed to write {runner_metrics.RUNNER_INSTALLATION_START_TS_FILE_NAME}"
+                    f" into metrics storage for runner %s, will not be able to issue all metrics.",
                     name,
                 )
 
@@ -813,14 +787,20 @@ class OpenStackRunnerManager(CloudRunnerManager):
         try:
             OpenStackRunnerManager._ssh_pull_file(
                 ssh_conn=ssh_conn,
+                remote_path=str(METRICS_EXCHANGE_PATH / "runner-installed.timestamp"),
+                local_path=str(storage.path / runner_metrics.RUNNER_INSTALLED_TS_FILE_NAME),
+                max_size=MAX_METRICS_FILE_SIZE,
+            )
+            OpenStackRunnerManager._ssh_pull_file(
+                ssh_conn=ssh_conn,
                 remote_path=str(METRICS_EXCHANGE_PATH / "pre-job-metrics.json"),
-                local_path=str(storage.path / "pre-job-metrics.json"),
+                local_path=str(storage.path / runner_metrics.PRE_JOB_METRICS_FILE_NAME),
                 max_size=MAX_METRICS_FILE_SIZE,
             )
             OpenStackRunnerManager._ssh_pull_file(
                 ssh_conn=ssh_conn,
                 remote_path=str(METRICS_EXCHANGE_PATH / "post-job-metrics.json"),
-                local_path=str(storage.path / "post-job-metrics.json"),
+                local_path=str(storage.path / runner_metrics.POST_JOB_METRICS_FILE_NAME),
                 max_size=MAX_METRICS_FILE_SIZE,
             )
         except _PullFileError as exc:

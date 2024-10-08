@@ -82,6 +82,7 @@ def reconcile(
     """
     cleanup_metric_stats = runner_manager.cleanup()
     if get_queue_size(runner_config.queue) == 0:
+        # TODO: capture metrics here too
         runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
 
     # Only count runners which are online on GitHub to prevent machines to be just in

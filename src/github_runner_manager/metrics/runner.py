@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 FILE_SIZE_BYTES_LIMIT = 1024
 PRE_JOB_METRICS_FILE_NAME = "pre-job-metrics.json"
 POST_JOB_METRICS_FILE_NAME = "post-job-metrics.json"
+RUNNER_INSTALLATION_START_TS_FILE_NAME = "runner-installation-start.timestamp"
 RUNNER_INSTALLED_TS_FILE_NAME = "runner-installed.timestamp"
 
 
@@ -92,12 +93,14 @@ class RunnerMetrics(BaseModel):
     """Metrics for a runner.
 
     Attributes:
+        installation_start_timestamp: The UNIX time stamp of the time at which the runner installation started.
         installed_timestamp: The UNIX time stamp of the time at which the runner was installed.
         pre_job: The metrics for the pre-job phase.
         post_job: The metrics for the post-job phase.
         runner_name: The name of the runner.
     """
 
+    installation_start_timestamp: Optional[NonNegativeFloat]
     installed_timestamp: NonNegativeFloat
     pre_job: PreJobMetrics
     post_job: Optional[PostJobMetrics]
@@ -158,6 +161,28 @@ def issue_events(
     runner_start_event = _create_runner_start(runner_metrics, flavor, job_metrics)
 
     issued_events = set()
+
+    if runner_metrics.installation_start_timestamp:
+        try:
+            metric_events.issue_event(
+                event=metric_events.RunnerInstalled(
+                    timestamp=runner_metrics.installation_start_timestamp,
+                    flavor=flavor,
+                    duration=runner_metrics.installed_timestamp
+                    - runner_metrics.installation_start_timestamp,
+                )
+            )
+        except IssueMetricEventError:
+            logger.exception(
+                "Failed to issue RunnerInstalled metric for runner %s.", runner_metrics.runner_name
+            )
+        else:
+            issued_events.add(metric_events.RunnerInstalled)
+
+        # Return to not issuing Runner{Start,Stop} metrics if RunnerInstalled metric could not be issued.
+        if not issued_events:
+            return issued_events
+
     try:
         metric_events.issue_event(runner_start_event)
     except ValidationError:
@@ -176,7 +201,7 @@ def issue_events(
             runner_metrics.runner_name,
         )
     else:
-        issued_events = {metric_events.RunnerStart}
+        issued_events.add(metric_events.RunnerStart)
 
     # Return to not issuing RunnerStop metrics if RunnerStart metric could not be issued.
     if not issued_events:
@@ -355,6 +380,17 @@ def _extract_metrics_from_storage(metrics_storage: MetricsStorage) -> Optional[R
         )
 
     runner_name = metrics_storage.runner_name
+
+    try:
+        installation_start_timestamp = metrics_storage.path.joinpath(
+            RUNNER_INSTALLATION_START_TS_FILE_NAME
+        ).read_text()
+        logger.debug(
+            "Runner %s installation started at %s", runner_name, installation_start_timestamp
+        )
+    except FileNotFoundError:
+        logger.debug("installation_start_timestamp not found for runner %s", runner_name)
+        installation_start_timestamp = None
     try:
         installed_timestamp = metrics_storage.path.joinpath(
             RUNNER_INSTALLED_TS_FILE_NAME
@@ -382,6 +418,7 @@ def _extract_metrics_from_storage(metrics_storage: MetricsStorage) -> Optional[R
 
     try:
         return RunnerMetrics(
+            installation_start_timestamp=installation_start_timestamp,
             installed_timestamp=installed_timestamp,
             pre_job=PreJobMetrics(**pre_job_metrics),
             post_job=PostJobMetrics(**post_job_metrics) if post_job_metrics else None,
