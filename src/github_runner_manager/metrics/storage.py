@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator, Protocol
 
-
 from github_runner_manager.errors import (
     CreateMetricsStorageError,
     DeleteMetricsStorageError,
@@ -66,7 +65,7 @@ class StorageManager(StorageManagerProtocol):
         """Initialize the storage manager.
 
         Args:
-            system_user_config: The configuration to decide which user to use to create the storage.
+            system_user_config: The configuration of the user owning the storage.
         """
         self._system_user_config = system_user_config
 
@@ -136,8 +135,6 @@ class StorageManager(StorageManagerProtocol):
     def list_all(self) -> Iterator[MetricsStorage]:
         """List all the metric storages.
 
-        Args:
-
         Yields:
             A metrics storage object.
         """
@@ -202,7 +199,6 @@ class StorageManager(StorageManagerProtocol):
         """Archive the metrics storage for the runner and delete it.
 
         Args:
-            storage_manager: The storage manager.
             runner_name: The name of the runner.
 
         Raises:

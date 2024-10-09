@@ -16,7 +16,7 @@ from github_runner_manager.errors import (
     QuarantineMetricsStorageError,
 )
 from github_runner_manager.metrics import storage
-from github_runner_manager.metrics.storage import MetricsStorage
+from github_runner_manager.metrics.storage import MetricsStorage, StorageManager
 from github_runner_manager.types_ import SystemUserConfig
 
 # We assume the process running the tests is running as a user
@@ -30,10 +30,7 @@ TEST_SYSTEM_USER_CONFIG = SystemUserConfig(
 @pytest.fixture(autouse=True, name="filesystem_paths")
 def filesystem_paths_fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Path]:
     """Mock the hardcoded filesystem paths."""
-    ms_path = tmp_path / "runner-fs"
-    ms_quarantine_path = tmp_path / "quarantine"
-    monkeypatch.setattr(storage, "FILESYSTEM_BASE_PATH", ms_path)
-    monkeypatch.setattr(storage, "FILESYSTEM_QUARANTINE_PATH", ms_quarantine_path)
+    monkeypatch.setattr(storage.Path, "expanduser", tmp_path)
     return {"base": ms_path, "quarantine": ms_quarantine_path}
 
 
@@ -45,7 +42,7 @@ def test_create_creates_directory():
     """
     runner_name = secrets.token_hex(16)
 
-    fs = storage.create(runner_name, TEST_SYSTEM_USER_CONFIG)
+    fs = StorageManager(TEST_SYSTEM_USER_CONFIG).create(runner_name)
 
     assert fs.path.exists()
     assert fs.path.is_dir()
