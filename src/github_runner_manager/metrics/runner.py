@@ -158,7 +158,7 @@ def issue_events(
     Returns:
         A set of issued events.
     """
-    issued_events = set()
+    issued_events: set[Type[metric_events.Event]] = set()
 
     if runner_metrics.installation_start_timestamp:
         if not _issue_runner_installed(runner_metrics=runner_metrics, flavor=flavor):
@@ -193,6 +193,9 @@ def _issue_runner_installed(runner_metrics: RunnerMetrics, flavor: str) -> bool:
     Returns:
         True if the metric was issued successfully.
     """
+    if not runner_metrics.installation_start_timestamp:
+        return False
+
     try:
         metric_events.issue_event(
             metric_events.RunnerInstalled(
@@ -432,50 +435,47 @@ def _extract_metrics_from_storage(metrics_storage: MetricsStorage) -> Optional[R
 
     runner_name = metrics_storage.runner_name
 
-    try:
-        installation_start_timestamp = metrics_storage.path.joinpath(
-            RUNNER_INSTALLATION_START_TS_FILE_NAME
-        ).read_text()
-        logger.debug(
-            "Runner %s installation started at %s", runner_name, installation_start_timestamp
+    installation_start_timestamp = _extract_file_from_storage(
+        metrics_storage=metrics_storage, filename=RUNNER_INSTALLATION_START_TS_FILE_NAME
+    )
+    logger.debug("Runner %s installation started at %s", runner_name, installation_start_timestamp)
+
+    installed_timestamp = _extract_file_from_storage(
+        metrics_storage=metrics_storage, filename=RUNNER_INSTALLED_TS_FILE_NAME
+    )
+    logger.debug("Runner %s installed at %s", runner_name, installed_timestamp)
+    if not installed_timestamp:
+        logger.error(
+            "installed timestamp not found for runner %s, stop extracting metrics.", runner_name
         )
-    except FileNotFoundError:
-        logger.debug("installation_start_timestamp not found for runner %s", runner_name)
-        installation_start_timestamp = None
-    try:
-        installed_timestamp = metrics_storage.path.joinpath(
-            RUNNER_INSTALLED_TS_FILE_NAME
-        ).read_text()
-        logger.debug("Runner %s installed at %s", runner_name, installed_timestamp)
-    except FileNotFoundError:
-        logger.exception("installed_timestamp not found for runner %s", runner_name)
         return None
 
-    try:
-        pre_job_metrics = _extract_file_from_storage(
-            metrics_storage=metrics_storage, filename=PRE_JOB_METRICS_FILE_NAME
+    pre_job_metrics = _extract_json_file_from_storage(
+        metrics_storage=metrics_storage, filename=PRE_JOB_METRICS_FILE_NAME
+    )
+    if not pre_job_metrics:
+        logger.error(
+            "Pre-job metrics for runner %s not found, stop extracting metrics.", runner_name
         )
-        if not pre_job_metrics:
-            return None
-        logger.debug("Pre-job metrics for runner %s: %s", runner_name, pre_job_metrics)
+        return None
+    logger.debug("Pre-job metrics for runner %s: %s", runner_name, pre_job_metrics)
 
-        post_job_metrics = _extract_file_from_storage(
-            metrics_storage=metrics_storage, filename=POST_JOB_METRICS_FILE_NAME
-        )
-        logger.debug("Post-job metrics for runner %s: %s", runner_name, post_job_metrics)
-    # TODO: 2024-04-02 - We should define a new error, wrap it and re-raise it.
-    except CorruptMetricDataError:  # pylint: disable=try-except-raise
-        raise
+    post_job_metrics = _extract_json_file_from_storage(
+        metrics_storage=metrics_storage, filename=POST_JOB_METRICS_FILE_NAME
+    )
+    logger.debug("Post-job metrics for runner %s: %s", runner_name, post_job_metrics)
 
     try:
         return RunnerMetrics(
-            installation_start_timestamp=installation_start_timestamp,
-            installed_timestamp=installed_timestamp,
+            installation_start_timestamp=(
+                float(installation_start_timestamp) if installation_start_timestamp else None
+            ),
+            installed_timestamp=float(installed_timestamp),
             pre_job=PreJobMetrics(**pre_job_metrics),
             post_job=PostJobMetrics(**post_job_metrics) if post_job_metrics else None,
             runner_name=runner_name,
         )
-    except ValidationError as exc:
+    except ValueError as exc:
         raise CorruptMetricDataError(str(exc)) from exc
 
 
@@ -500,7 +500,7 @@ def _inspect_file_sizes(metrics_storage: MetricsStorage) -> tuple[Path, ...]:
     )
 
 
-def _extract_file_from_storage(metrics_storage: MetricsStorage, filename: str) -> dict | None:
+def _extract_json_file_from_storage(metrics_storage: MetricsStorage, filename: str) -> dict | None:
     """Extract a particular metric file from metrics storage.
 
     Args:
@@ -513,13 +513,14 @@ def _extract_file_from_storage(metrics_storage: MetricsStorage, filename: str) -
     Returns:
         Metrics for the given runner if present.
     """
-    try:
-        job_metrics = json.loads(
-            metrics_storage.path.joinpath(filename).read_text(encoding="utf-8")
-        )
-    except FileNotFoundError:
-        logger.warning("%s not found for runner %s.", filename, metrics_storage.runner_name)
+    job_metrics_raw = _extract_file_from_storage(
+        metrics_storage=metrics_storage, filename=filename
+    )
+    if not job_metrics_raw:
         return None
+
+    try:
+        job_metrics = json.loads(job_metrics_raw)
     except JSONDecodeError as exc:
         raise CorruptMetricDataError(str(exc)) from exc
     if not isinstance(job_metrics, dict):
@@ -527,6 +528,24 @@ def _extract_file_from_storage(metrics_storage: MetricsStorage, filename: str) -
             f"{filename} metrics for runner {metrics_storage.runner_name} is not a JSON object."
         )
     return job_metrics
+
+
+def _extract_file_from_storage(metrics_storage: MetricsStorage, filename: str) -> str | None:
+    """Extract a particular file from metrics storage.
+
+    Args:
+        metrics_storage: The metrics storage for a specific runner.
+        filename: The metrics filename.
+
+    Returns:
+        Metrics for the given runner if present.
+    """
+    try:
+        file_content = metrics_storage.path.joinpath(filename).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        logger.exception("%s not found for runner %s", filename, metrics_storage.runner_name)
+        file_content = None
+    return file_content
 
 
 def _clean_up_storage(
