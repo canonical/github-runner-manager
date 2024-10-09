@@ -14,8 +14,10 @@ from tests.unit.factories import openstack_factory
 
 
 @pytest.fixture(scope="function", name="mock_openstack_runner_manager")
-def mock_openstack_runner_manager_fixture():
+def mock_openstack_runner_manager_fixture(monkeypatch: pytest.MonkeyPatch):
     """The mocked OpenStackRunnerManager instance."""
+    monkeypatch.setattr(openstack_runner_manager, "OpenstackCloud", MagicMock())
+
     config = openstack_runner_manager.OpenStackRunnerManagerConfig(
         name="mock-manager",
         prefix="mock-manager",
@@ -48,7 +50,11 @@ def mock_openstack_runner_manager_fixture():
             ssh_debug_connections=None,
             repo_policy_compliance=None,
         ),
-        system_user_config=MagicMock(spec=openstack_runner_manager.SystemUserConfig),
+        # we assume that the user is not really used in the tests in this module
+        # and we can use random values
+        system_user_config=openstack_runner_manager.SystemUserConfig(
+            user=secrets.token_hex(16), group=secrets.token_hex(16)
+        ),
     )
 
     return openstack_runner_manager.OpenStackRunnerManager(config=config)

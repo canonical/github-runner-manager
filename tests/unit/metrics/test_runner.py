@@ -289,14 +289,14 @@ def test_extract_corrupt_data(runner_fs_base: Path, monkeypatch: pytest.MonkeyPa
     metrics_storage_manager = MagicMock()
     metrics_storage_manager.list_all.return_value = [runner_fs]
     move_to_quarantine_mock = MagicMock()
-    monkeypatch.setattr(runner_metrics, "move_to_quarantine", move_to_quarantine_mock)
+    metrics_storage_manager.move_to_quarantine = move_to_quarantine_mock
 
     extracted_metrics = list(
         runner_metrics.extract(metrics_storage_manager=metrics_storage_manager, runners=set())
     )
 
     assert not extracted_metrics
-    move_to_quarantine_mock.assert_any_call(metrics_storage_manager, runner_fs.runner_name)
+    move_to_quarantine_mock.assert_any_call(runner_fs.runner_name)
 
     # 2. Runner has non-json post-job metrics inside metrics storage.
     runner_name = secrets.token_hex(16)
@@ -315,7 +315,7 @@ def test_extract_corrupt_data(runner_fs_base: Path, monkeypatch: pytest.MonkeyPa
         runner_metrics.extract(metrics_storage_manager=metrics_storage_manager, runners=set())
     )
     assert not extracted_metrics
-    move_to_quarantine_mock.assert_any_call(metrics_storage_manager, runner_fs.runner_name)
+    move_to_quarantine_mock.assert_any_call(runner_fs.runner_name)
 
     # 3. Runner has json post-job metrics but a json array (not object) inside metrics storage.
     runner_name = secrets.token_hex(16)
@@ -334,7 +334,7 @@ def test_extract_corrupt_data(runner_fs_base: Path, monkeypatch: pytest.MonkeyPa
         runner_metrics.extract(metrics_storage_manager=metrics_storage_manager, runners=set())
     )
     assert not extracted_metrics
-    move_to_quarantine_mock.assert_any_call(metrics_storage_manager, runner_fs.runner_name)
+    move_to_quarantine_mock.assert_any_call(runner_fs.runner_name)
 
     # 4. Runner has not a timestamp in installed_timestamp file inside metrics storage.
     runner_name = secrets.token_hex(16)
@@ -354,7 +354,7 @@ def test_extract_corrupt_data(runner_fs_base: Path, monkeypatch: pytest.MonkeyPa
     )
     assert not extracted_metrics
 
-    move_to_quarantine_mock.assert_any_call(metrics_storage_manager, runner_fs.runner_name)
+    move_to_quarantine_mock.assert_any_call(runner_fs.runner_name)
 
     # 5. Runner has not a timestamp in installation_start_timestamp file inside metrics storage.
     runner_name = secrets.token_hex(16)
@@ -375,12 +375,10 @@ def test_extract_corrupt_data(runner_fs_base: Path, monkeypatch: pytest.MonkeyPa
     )
     assert not extracted_metrics
 
-    move_to_quarantine_mock.assert_any_call(metrics_storage_manager, runner_fs.runner_name)
+    move_to_quarantine_mock.assert_any_call(runner_fs.runner_name)
 
 
-def test_extract_raises_error_for_too_large_files(
-    runner_fs_base: Path, monkeypatch: pytest.MonkeyPatch
-):
+def test_extract_raises_error_for_too_large_files(runner_fs_base: Path):
     """
     arrange: Runners with too large metric and timestamp files.
     act: Call extract.
@@ -406,14 +404,14 @@ def test_extract_raises_error_for_too_large_files(
     metrics_storage_manager.list_all.return_value = [runner_fs]
 
     move_to_quarantine_mock = MagicMock()
-    monkeypatch.setattr(runner_metrics, "move_to_quarantine", move_to_quarantine_mock)
+    metrics_storage_manager.move_to_quarantine = move_to_quarantine_mock
 
     extracted_metrics = list(
         runner_metrics.extract(metrics_storage_manager=metrics_storage_manager, runners=set())
     )
     assert not extracted_metrics
 
-    move_to_quarantine_mock.assert_any_call(metrics_storage_manager, runner_fs.runner_name)
+    move_to_quarantine_mock.assert_any_call(runner_fs.runner_name)
 
     # 2. Runner has a post-job metrics file that is too large
     runner_name = secrets.token_hex(16)
@@ -436,7 +434,7 @@ def test_extract_raises_error_for_too_large_files(
 
     assert not extracted_metrics
 
-    move_to_quarantine_mock.assert_any_call(metrics_storage_manager, runner_fs.runner_name)
+    move_to_quarantine_mock.assert_any_call(runner_fs.runner_name)
 
     # 3. Runner has an installed_timestamp file that is too large
     runner_name = secrets.token_hex(16)
@@ -458,7 +456,7 @@ def test_extract_raises_error_for_too_large_files(
     )
 
     assert not extracted_metrics
-    move_to_quarantine_mock.assert_any_call(metrics_storage_manager, runner_fs.runner_name)
+    move_to_quarantine_mock.assert_any_call(runner_fs.runner_name)
 
     # 4. Runner has an installation_start_timestamp file that is too large
     runner_name = secrets.token_hex(16)
@@ -481,7 +479,7 @@ def test_extract_raises_error_for_too_large_files(
     )
 
     assert not extracted_metrics
-    move_to_quarantine_mock.assert_any_call(metrics_storage_manager, runner_fs.runner_name)
+    move_to_quarantine_mock.assert_any_call(runner_fs.runner_name)
 
 
 def test_extract_ignores_filesystems_without_ts(runner_fs_base: Path):
