@@ -81,9 +81,11 @@ def reconcile(
         to the number of processes killed.
     """
     cleanup_metric_stats = runner_manager.cleanup()
+    flush_metric_stats = {}
+    delete_metric_stats = {}
+
     if get_queue_size(runner_config.queue) == 0:
-        # TODO: capture metrics here too
-        runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
+        flush_metric_stats = runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
 
     # Only count runners which are online on GitHub to prevent machines to be just in
     # construction to be counted and then killed immediately by the process manager.
@@ -94,15 +96,18 @@ def reconcile(
 
     if runner_diff >= 0:
         process_quantity = runner_diff
-        metric_stats = cleanup_metric_stats
     else:
         delete_metric_stats = runner_manager.delete_runners(-runner_diff)
         process_quantity = 0
-        metric_stats = {
-            event_name: delete_metric_stats.get(event_name, 0)
-            + cleanup_metric_stats.get(event_name, 0)
-            for event_name in set(delete_metric_stats) | set(cleanup_metric_stats)
-        }
+
+    metric_stats = {
+        event_name: delete_metric_stats.get(event_name, 0)
+        + cleanup_metric_stats.get(event_name, 0)
+        + flush_metric_stats.get(event_name, 0)
+        for event_name in set(delete_metric_stats)
+        | set(cleanup_metric_stats)
+        | set(flush_metric_stats)
+    }
 
     processes_created = process_manager.reconcile(
         quantity=process_quantity,
