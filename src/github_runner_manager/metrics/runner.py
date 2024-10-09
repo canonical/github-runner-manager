@@ -20,8 +20,7 @@ from github_runner_manager.errors import (
 )
 from github_runner_manager.metrics import events as metric_events
 from github_runner_manager.metrics.storage import MetricsStorage
-from github_runner_manager.metrics.storage import StorageManager as MetricsStorageManager
-from github_runner_manager.metrics.storage import move_to_quarantine
+from github_runner_manager.metrics.storage import StorageManagerProtocol as MetricsStorageManager
 from github_runner_manager.metrics.type import GithubJobMetrics
 
 logger = logging.getLogger(__name__)
@@ -353,7 +352,7 @@ def _extract_storage(
         metrics_from_fs = _extract_metrics_from_storage(metrics_storage)
     except CorruptMetricDataError:
         logger.exception("Corrupt metric data found for runner %s", runner_name)
-        move_to_quarantine(metrics_storage_manager, runner_name)
+        metrics_storage_manager.move_to_quarantine(runner_name)
         return None
 
     logger.debug("Cleaning metrics storage for runner %s", runner_name)

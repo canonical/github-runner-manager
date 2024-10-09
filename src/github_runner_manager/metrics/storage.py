@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator, Protocol
 
+
 from github_runner_manager.errors import (
     CreateMetricsStorageError,
     DeleteMetricsStorageError,
@@ -20,8 +21,8 @@ from github_runner_manager.errors import (
 )
 from github_runner_manager.types_ import SystemUserConfig
 
-FILESYSTEM_BASE_PATH = Path("/home/ubuntu/runner-fs")
-FILESYSTEM_QUARANTINE_PATH = Path("/home/ubuntu/runner-fs-quarantine")
+_FILESYSTEM_BASE_DIR_NAME = "runner-fs"
+_FILESYSTEM_QUARANTINE_DIR_NAME = "runner-fs-quarantine"
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class MetricsStorage:
     runner_name: str
 
 
-class StorageManager(Protocol):  # pylint: disable=too-few-public-methods
+class StorageManagerProtocol(Protocol):  # pylint: disable=too-few-public-methods
     """A protocol defining the methods for managing the metrics storage.
 
     Attributes:
@@ -48,167 +49,225 @@ class StorageManager(Protocol):  # pylint: disable=too-few-public-methods
         list_all: Method to list all storages.
         get: Method to get a storage by name.
         delete: Method to delete a storage by name.
+        move_to_quarantine: Method to archive and delete a storage by name.
     """
 
     create: Callable[[str], MetricsStorage]
     list_all: Callable[[], Iterator[MetricsStorage]]
     get: Callable[[str], MetricsStorage]
     delete: Callable[[str], None]
+    move_to_quarantine: Callable[[str], None]
 
 
-def _get_runner_fs_path(runner_name: str) -> Path:
-    """Get the path of the runner shared filesystem.
+class StorageManager(StorageManagerProtocol):
+    """Manager for the metrics storage."""
 
-    Args:
-        runner_name: The name of the runner.
+    def __init__(self, system_user_config: SystemUserConfig):
+        """Initialize the storage manager.
 
-    Returns:
-        The path of the runner shared filesystem.
-    """
-    return FILESYSTEM_BASE_PATH / runner_name
+        Args:
+            system_user_config: The configuration to decide which user to use to create the storage.
+        """
+        self._system_user_config = system_user_config
 
+    def create(self, runner_name: str) -> MetricsStorage:
+        """Create metrics storage for the runner.
 
-def create(runner_name: str, system_user_config: SystemUserConfig) -> MetricsStorage:
-    """Create metrics storage for the runner.
+        The method is not idempotent and will raise an exception
+        if the storage already exists.
 
-    The method is not idempotent and will raise an exception
-    if the storage already exists.
+        Args:
+            runner_name: The name of the runner.
 
-    Args:
-        runner_name: The name of the runner.
-        system_user_config: The configuration to decide which user to use to create the storage.
+        Returns:
+            The metrics storage object.
 
-    Returns:
-        The metrics storage object.
-
-    Raises:
-        CreateMetricsStorageError: If the creation of the shared filesystem fails.
-    """
-    try:
-        FILESYSTEM_BASE_PATH.mkdir(exist_ok=True)
-        shutil.chown(
-            FILESYSTEM_BASE_PATH, user=system_user_config.user, group=system_user_config.group
-        )
-        logger.debug(
-            "Changed ownership of %s to %s:%s",
-            FILESYSTEM_BASE_PATH,
-            system_user_config.user,
-            system_user_config.group,
-        )
-        FILESYSTEM_QUARANTINE_PATH.mkdir(exist_ok=True)
-        shutil.chown(
-            FILESYSTEM_QUARANTINE_PATH,
-            user=system_user_config.user,
-            group=system_user_config.group,
-        )
-        logger.debug(
-            "Changed ownership of %s to %s:%s",
-            FILESYSTEM_QUARANTINE_PATH,
-            system_user_config.user,
-            system_user_config.group,
-        )
-
-    except OSError as exc:
-        raise CreateMetricsStorageError("Failed to create metrics storage directories") from exc
-
-    runner_fs_path = _get_runner_fs_path(runner_name)
-
-    try:
-        runner_fs_path.mkdir()
-    except FileExistsError as exc:
-        raise CreateMetricsStorageError(
-            f"Metrics storage for runner {runner_name} already exists."
-        ) from exc
-
-    return MetricsStorage(runner_fs_path, runner_name)
-
-
-def list_all() -> Iterator[MetricsStorage]:
-    """List all the metric storages.
-
-    Yields:
-        A metrics storage object.
-    """
-    if not FILESYSTEM_BASE_PATH.exists():
-        return
-
-    directories = (entry for entry in FILESYSTEM_BASE_PATH.iterdir() if entry.is_dir())
-    for directory in directories:
+        Raises:
+            CreateMetricsStorageError: If the creation of the shared filesystem fails.
+        """
         try:
-            fs = get(runner_name=directory.name)
-        except GetMetricsStorageError:
-            logger.error("Failed to get metrics storage for runner %s", directory.name)
-        else:
-            yield fs
+            base_dir = self._get_filesystem_base_dir_path(self._system_user_config.user)
+            base_dir.mkdir(exist_ok=True)
+            # this could be executed as root (e.g. during a charm hook), therefore set permissions
+            shutil.chown(
+                base_dir, user=self._system_user_config.user, group=self._system_user_config.group
+            )
+            logger.debug(
+                "Changed ownership of %s to %s:%s",
+                _FILESYSTEM_BASE_DIR_NAME,
+                self._system_user_config.user,
+                self._system_user_config.group,
+            )
 
+            quarantine_dir = self._get_filesystem_quarantine_dir_path(
+                self._system_user_config.user
+            )
+            quarantine_dir.mkdir(exist_ok=True)
+            shutil.chown(
+                quarantine_dir,
+                user=self._system_user_config.user,
+                group=self._system_user_config.group,
+            )
+            logger.debug(
+                "Changed ownership of %s to %s:%s",
+                quarantine_dir,
+                self._system_user_config.user,
+                self._system_user_config.group,
+            )
 
-def get(runner_name: str) -> MetricsStorage:
-    """Get the metrics storage for the runner.
+        except OSError as exc:
+            raise CreateMetricsStorageError(
+                "Failed to create metrics storage directories"
+            ) from exc
 
-    Args:
-        runner_name: The name of the runner.
+        runner_fs_path = self._get_runner_fs_path(
+            runner_name=runner_name, system_user=self._system_user_config.user
+        )
 
-    Returns:
-        The metrics storage object.
+        try:
+            runner_fs_path.mkdir()
+        except FileExistsError as exc:
+            raise CreateMetricsStorageError(
+                f"Metrics storage for runner {runner_name} already exists."
+            ) from exc
 
-    Raises:
-        GetMetricsStorageError: If the storage does not exist.
-    """
-    runner_fs_path = _get_runner_fs_path(runner_name)
-    if not runner_fs_path.exists():
-        raise GetMetricsStorageError(f"Metrics storage for runner {runner_name} not found.")
+        return MetricsStorage(runner_fs_path, runner_name)
 
-    return MetricsStorage(runner_fs_path, runner_name)
+    def list_all(self) -> Iterator[MetricsStorage]:
+        """List all the metric storages.
 
+        Args:
 
-def delete(runner_name: str) -> None:
-    """Delete the metrics storage for the runner.
+        Yields:
+            A metrics storage object.
+        """
+        if not (
+            base_dir := self._get_filesystem_base_dir_path(self._system_user_config.user)
+        ).exists():
+            return
 
-    Args:
-        runner_name: The name of the runner.
+        directories = (entry for entry in base_dir.iterdir() if entry.is_dir())
+        for directory in directories:
+            try:
+                fs = self.get(runner_name=directory.name)
+            except GetMetricsStorageError:
+                logger.error("Failed to get metrics storage for runner %s", directory.name)
+            else:
+                yield fs
 
-    Raises:
-        DeleteMetricsStorageError: If the storage could not be deleted.
-    """
-    runner_fs_path = _get_runner_fs_path(runner_name=runner_name)
+    def get(self, runner_name: str) -> MetricsStorage:
+        """Get the metrics storage for the runner.
 
-    try:
-        shutil.rmtree(runner_fs_path)
-    except OSError as exc:
-        raise DeleteMetricsStorageError(
-            f"Failed to remove metrics storage for runner {runner_name}"
-        ) from exc
+        Args:
+            runner_name: The name of the runner.
 
+        Returns:
+            The metrics storage object.
 
-def move_to_quarantine(storage_manager: StorageManager, runner_name: str) -> None:
-    """Archive the metrics storage for the runner and delete it.
+        Raises:
+            GetMetricsStorageError: If the storage does not exist.
+        """
+        runner_fs_path = self._get_runner_fs_path(
+            runner_name=runner_name, system_user=self._system_user_config.user
+        )
+        if not runner_fs_path.exists():
+            raise GetMetricsStorageError(f"Metrics storage for runner {runner_name} not found.")
 
-    Args:
-        storage_manager: The storage manager.
-        runner_name: The name of the runner.
+        return MetricsStorage(runner_fs_path, runner_name)
 
-    Raises:
-        QuarantineMetricsStorageError: If the metrics storage could not be quarantined.
-    """
-    try:
-        runner_fs = storage_manager.get(runner_name)
-    except GetMetricsStorageError as exc:
-        raise QuarantineMetricsStorageError(
-            f"Failed to get metrics storage for runner {runner_name}"
-        ) from exc
+    def delete(self, runner_name: str) -> None:
+        """Delete the metrics storage for the runner.
 
-    tarfile_path = FILESYSTEM_QUARANTINE_PATH.joinpath(runner_name).with_suffix(".tar.gz")
-    try:
-        with tarfile.open(tarfile_path, "w:gz") as tar:
-            tar.add(runner_fs.path, arcname=runner_fs.path.name)
-    except OSError as exc:
-        raise QuarantineMetricsStorageError(
-            f"Failed to archive metrics storage for runner {runner_name}"
-        ) from exc
+        Args:
+            runner_name: The name of the runner.
 
-    try:
-        storage_manager.delete(runner_name)
-    except DeleteMetricsStorageError as exc:
-        raise QuarantineMetricsStorageError(
-            f"Failed to delete metrics storage for runner {runner_name}"
-        ) from exc
+        Raises:
+            DeleteMetricsStorageError: If the storage could not be deleted.
+        """
+        runner_fs_path = self._get_runner_fs_path(
+            runner_name=runner_name, system_user=self._system_user_config.user
+        )
+
+        try:
+            shutil.rmtree(runner_fs_path)
+        except OSError as exc:
+            raise DeleteMetricsStorageError(
+                f"Failed to remove metrics storage for runner {runner_name}"
+            ) from exc
+
+    def move_to_quarantine(
+        self,
+        runner_name: str,
+    ) -> None:
+        """Archive the metrics storage for the runner and delete it.
+
+        Args:
+            storage_manager: The storage manager.
+            runner_name: The name of the runner.
+
+        Raises:
+            QuarantineMetricsStorageError: If the metrics storage could not be quarantined.
+        """
+        try:
+            runner_fs = self.get(runner_name)
+        except GetMetricsStorageError as exc:
+            raise QuarantineMetricsStorageError(
+                f"Failed to get metrics storage for runner {runner_name}"
+            ) from exc
+
+        tarfile_path = (
+            self._get_filesystem_quarantine_dir_path(self._system_user_config.user)
+            .joinpath(runner_name)
+            .with_suffix(".tar.gz")
+        )
+        try:
+            with tarfile.open(tarfile_path, "w:gz") as tar:
+                tar.add(runner_fs.path, arcname=runner_fs.path.name)
+        except OSError as exc:
+            raise QuarantineMetricsStorageError(
+                f"Failed to archive metrics storage for runner {runner_name}"
+            ) from exc
+
+        try:
+            self.delete(runner_name)
+        except DeleteMetricsStorageError as exc:
+            raise QuarantineMetricsStorageError(
+                f"Failed to delete metrics storage for runner {runner_name}"
+            ) from exc
+
+    @staticmethod
+    def _get_runner_fs_path(runner_name: str, system_user: str) -> Path:
+        """Get the path of the runner metrics storage.
+
+        Args:
+            runner_name: The name of the runner.
+            system_user: The name of the system user used to determine the storage location.
+
+        Returns:
+            The path of the runner shared filesystem.
+        """
+        return StorageManager._get_filesystem_base_dir_path(system_user) / runner_name
+
+    @staticmethod
+    def _get_filesystem_base_dir_path(system_user: str) -> Path:
+        """Get the path of the runner metrics storage.
+
+        Args:
+            system_user: The name of the system user used to determine the storage location.
+
+        Returns:
+            The path of the runner metrics storage.
+        """
+        return Path(f"~{system_user}").expanduser() / _FILESYSTEM_BASE_DIR_NAME
+
+    @staticmethod
+    def _get_filesystem_quarantine_dir_path(system_user: str) -> Path:
+        """Get the path of the runner metrics quarantine storage.
+
+        Args:
+            system_user: The name of the system user used to determine the storage location.
+
+        Returns:
+            The path of the runner metrics quarantine storage.
+        """
+        return Path(f"~{system_user}").expanduser() / _FILESYSTEM_QUARANTINE_DIR_NAME
