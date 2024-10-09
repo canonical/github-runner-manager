@@ -155,7 +155,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
             clouds_config=config.cloud_config.clouds_config,
             cloud=config.cloud_config.cloud,
             prefix=self.name_prefix,
-            ssh_key_dir=Path(f"~{config.system_user_config.user}").expanduser() / ".ssh",
+            system_user=config.system_user_config.user,
         )
         self._system_user_config = config.system_user_config
         self._metrics_storage_manager = metrics_storage.StorageManager(

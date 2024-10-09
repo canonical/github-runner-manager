@@ -4,6 +4,7 @@
 """Class for accessing OpenStack API for managing servers."""
 
 import logging
+import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -136,7 +137,7 @@ class OpenstackCloud:
     get_server_name.
     """
 
-    def __init__(self, clouds_config: dict[str, dict], cloud: str, prefix: str, ssh_key_dir: Path):
+    def __init__(self, clouds_config: dict[str, dict], cloud: str, prefix: str, system_user: str):
         """Create the object.
 
         Args:
@@ -144,12 +145,13 @@ class OpenstackCloud:
             cloud: The name of cloud to use in the clouds.yaml.
             prefix: Prefix attached to names of resource managed by this instance. Used for
                 identifying which resource belongs to this instance.
-            ssh_key_dir: The directory to store the SSH key files.
+            system_user: The system user to own the key files.
         """
         self._clouds_config = clouds_config
         self._cloud = cloud
         self.prefix = prefix
-        self._ssh_key_dir = ssh_key_dir
+        self._system_user = system_user
+        self._ssh_key_dir = Path(f"~{system_user}").expanduser() / ".ssh"
 
     # Ignore "Too many arguments" as 6 args should be fine. Move to a dataclass if new args are
     # added.
@@ -495,8 +497,9 @@ class OpenstackCloud:
             key_path.unlink(missing_ok=True)
 
         keypair = conn.create_keypair(name=name)
-        key_path.parent.mkdir(parents=True, exist_ok=True)
         key_path.write_text(keypair.private_key)
+        # the charm executes this as root, so we need to change the ownership of the key file
+        shutil.chown(key_path, user=self._system_user)
         key_path.chmod(0o400)
         return keypair
 
