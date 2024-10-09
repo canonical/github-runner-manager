@@ -510,6 +510,7 @@ class OpenstackCloud:
             conn: The connection object to access OpenStack cloud.
             name: The name of the keypair.
         """
+        logger.debug("Deleting keypair for %s", name)
         try:
             # Keypair have unique names, access by ID is not needed.
             if not conn.delete_keypair(name):
