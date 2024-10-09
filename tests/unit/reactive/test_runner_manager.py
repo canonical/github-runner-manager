@@ -168,7 +168,7 @@ def test_reconcile_flushes_idle_runners_when_queue_is_empty(
             1,
             5,
             dict(),
-            default_cleanup_stats,
+            default_delete_stats,
             dict(),
             id="positive runner diff with empty cleanup stats",
         ),
@@ -279,6 +279,154 @@ def test_reconcile_returns_issued_metrics(
     runner_manager.delete_runners.return_value = delete_metric_stats
 
     _set_queue_non_empty(monkeypatch)
+
+    result = reconcile(desired_quantity, runner_manager, runner_config)
+
+    assert result.metric_stats == expected_metrics
+
+
+@pytest.mark.usefixtures("reactive_process_manager")
+@pytest.mark.parametrize(
+    "runner_quantity, desired_quantity, cleanup_metric_stats, delete_metric_stats, flush_metric_stats,"
+    "expected_metrics",
+    [
+        pytest.param(
+            1,
+            5,
+            (default_cleanup_stats := {RunnerStart: 1, RunnerStop: 3}),
+            (default_delete_stats := {RunnerStart: 3, RunnerStop: 4}),
+            (default_flush_stats := {RunnerStart: 5, RunnerStop: 6}),
+            {RunnerStart: 6, RunnerStop: 9},
+            id="positive runner diff returns cleanup + flush stats",
+        ),
+        pytest.param(
+            1,
+            5,
+            default_cleanup_stats,
+default_delete_stats,
+            dict(),
+            default_cleanup_stats,
+            id="positive runner diff with empty flush stats",
+        ),
+        pytest.param(
+            1,
+            5,
+            dict(),
+            default_delete_stats,
+            default_flush_stats,
+            default_flush_stats,
+            id="positive runner diff with empty cleanup stats",
+        ),
+        pytest.param(1, 5, dict(), dict(), dict(), dict(), id="positive runner diff with empty stats"),
+        pytest.param(
+            0,
+            0,
+            default_cleanup_stats,
+            default_delete_stats,
+            default_flush_stats,
+            {RunnerStart: 6, RunnerStop: 9},
+            id="zero runner diff returns cleanup + flush stats",
+        ),
+        # pytest.param(
+        #     0,
+        #     0,
+        #     default_cleanup_stats,
+        #     dict(),
+        #     default_cleanup_stats,
+        #     id="zero runner diff with empty delete stats",
+        # ),
+        # pytest.param(
+        #     0,
+        #     0,
+        #     dict(),
+        #     default_delete_stats,
+        #     dict(),
+        #     id="zero runner diff with empty cleanup stats",
+        # ),
+        # pytest.param(0, 0, dict(), dict(), dict(), id="zero runner diff with empty stats"),
+        # pytest.param(
+        #     5,
+        #     1,
+        #     {RunnerStart: 1, RunnerStop: 3},
+        #     {RunnerStart: 3, RunnerStop: 4},
+        #     {RunnerStart: 4, RunnerStop: 7},
+        #     id="negative runner diff returns merged stats",
+        # ),
+        # pytest.param(
+        #     5,
+        #     1,
+        #     default_cleanup_stats,
+        #     dict(),
+        #     default_cleanup_stats,
+        #     id="negative runner diff with empty delete stats",
+        # ),
+        # pytest.param(
+        #     5,
+        #     1,
+        #     dict(),
+        #     default_delete_stats,
+        #     default_delete_stats,
+        #     id="negative runner diff with empty cleanup stats",
+        # ),
+        # pytest.param(5, 1, dict(), dict(), dict(), id="negative runner diff with empty stats"),
+        # pytest.param(
+        #     5,
+        #     1,
+        #     {RunnerStart: 3},
+        #     {RunnerStart: 3, RunnerStop: 4},
+        #     {RunnerStart: 6, RunnerStop: 4},
+        #     id="cleanup stats without RunnerStop",
+        # ),
+        # pytest.param(
+        #     5,
+        #     1,
+        #     {RunnerStop: 3},
+        #     {RunnerStart: 3, RunnerStop: 4},
+        #     {RunnerStart: 3, RunnerStop: 7},
+        #     id="cleanup stats without RunnerStart",
+        # ),
+        # pytest.param(
+        #     5,
+        #     1,
+        #     {RunnerStart: 3},
+        #     {RunnerStop: 4},
+        #     {RunnerStart: 3, RunnerStop: 4},
+        #     id="delete stats without RunnerStart",
+        # ),
+        # pytest.param(
+        #     5,
+        #     1,
+        #     {RunnerStart: 3, RunnerStop: 4},
+        #     {RunnerStart: 4},
+        #     {RunnerStart: 7, RunnerStop: 4},
+        #     id="delete stats without RunnerStop",
+        # ),
+    ],
+)
+def test_reconcile_empty_queue_returns_issued_metrics(
+    runner_quantity: int,
+    desired_quantity: int,
+    cleanup_metric_stats: IssuedMetricEventsStats,
+    delete_metric_stats: IssuedMetricEventsStats,
+    flush_metric_stats: IssuedMetricEventsStats,
+    expected_metrics: IssuedMetricEventsStats,
+    runner_manager: MagicMock,
+    runner_config: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """
+    arrange: Mock different cleanup,delete,flush stats and positive/negative runner diff combinations and an empty queue.
+    act: Call reconcile.
+    assert: The returned metrics are as expected.
+    """
+    runner_manager.get_runners = MagicMock(
+        return_value=(tuple(MagicMock(spec=RunnerInstance) for _ in range(runner_quantity)))
+    )
+    runner_manager.cleanup.return_value = cleanup_metric_stats
+    runner_manager.delete_runners.return_value = delete_metric_stats
+    runner_manager.flush_runners.return_value = flush_metric_stats
+
+    _set_queue_empty(monkeypatch)
 
     result = reconcile(desired_quantity, runner_manager, runner_config)
 
