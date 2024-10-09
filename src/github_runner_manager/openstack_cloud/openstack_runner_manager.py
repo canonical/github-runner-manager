@@ -356,9 +356,10 @@ class OpenStackRunnerManager(CloudRunnerManager):
         """
         logger.debug("Getting runner healths for cleanup.")
         runners = self._get_runners_health()
-        healthy_runner_names = [runner.server_name for runner in runners.healthy]
+        healthy_runner_names = {runner.server_name for runner in runners.healthy}
+        logger.debug("Healthy runners: %s", healthy_runner_names)
 
-        logger.debug("Deleting runners.")
+        logger.debug("Deleting unhealthy runners.")
         for runner in runners.unhealthy:
             self._delete_runner(runner, remove_token)
         logger.debug("Cleaning up runner resources.")
@@ -367,7 +368,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         logger.debug("Extracting metrics.")
         metrics = runner_metrics.extract(
             metrics_storage_manager=self._metrics_storage_manager,
-            runners=set(healthy_runner_names),
+            runners=healthy_runner_names,
         )
         return metrics
 
@@ -433,6 +434,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
             True if runner is healthy.
         """
         cloud_state = CloudRunnerState.from_openstack_server_status(instance.status)
+        logger.debug("Cloud state of %s: %s", instance.server_name, cloud_state)
         if cloud_state in (
             CloudRunnerState.DELETED,
             CloudRunnerState.STOPPED,
