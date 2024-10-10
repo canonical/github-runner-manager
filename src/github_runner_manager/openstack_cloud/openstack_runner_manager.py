@@ -779,6 +779,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
             name: The name of the runner.
             ssh_conn: The SSH connection to the runner.
         """
+        logger.debug("Pulling metrics for %s", name)
         try:
             storage = self._metrics_storage_manager.get(runner_name=name)
         except GetMetricsStorageError:
