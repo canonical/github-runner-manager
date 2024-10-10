@@ -397,7 +397,7 @@ def _extract_storage(
         metrics_storage: The metrics storage for a specific runner.
 
     Returns:
-        The extracted metrics if at least the runner-installation start or pre-job metrics are present.
+        The extracted metrics if at least the runner installed timestamp is present.
     """
     runner_name = metrics_storage.runner_name
     try:
