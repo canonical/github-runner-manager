@@ -8,7 +8,7 @@ import logging
 from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Iterator, Optional, Type
+from typing import Iterator, Optional, Type, cast
 
 from pydantic import BaseModel, Field, NonNegativeFloat, ValidationError
 
@@ -16,7 +16,6 @@ from github_runner_manager.errors import (
     CorruptMetricDataError,
     DeleteMetricsStorageError,
     IssueMetricEventError,
-    RunnerMetricsError,
 )
 from github_runner_manager.metrics import events as metric_events
 from github_runner_manager.metrics.storage import MetricsStorage
@@ -186,6 +185,8 @@ def issue_events(
 def _issue_runner_installed(runner_metrics: RunnerMetrics, flavor: str) -> bool:
     """Issue the RunnerInstalled metric for a runner.
 
+    Assumes that the runner installed timestamp is present.
+
     Args:
         runner_metrics: The metrics for the runner.
         flavor: The flavor of the runner.
@@ -193,16 +194,14 @@ def _issue_runner_installed(runner_metrics: RunnerMetrics, flavor: str) -> bool:
     Returns:
         True if the metric was issued successfully.
     """
-    if not runner_metrics.installation_start_timestamp:
-        return False
-
     try:
         metric_events.issue_event(
             metric_events.RunnerInstalled(
                 timestamp=runner_metrics.installed_timestamp,
                 flavor=flavor,
-                duration=runner_metrics.installed_timestamp
-                - runner_metrics.installation_start_timestamp,
+                # the installation_start_timestamp should be present
+                duration=runner_metrics.installed_timestamp  # type: ignore
+                - runner_metrics.installation_start_timestamp,  # type: ignore
             )
         )
     except IssueMetricEventError:
@@ -291,27 +290,30 @@ def _create_runner_start(
 ) -> metric_events.RunnerStart:
     """Create the RunnerStart event.
 
+    Expects that the runner_metrics.pre_job is not None.
+
     Args:
-        runner_metrics: The metrics for the runner.
+        runner_metrics: The metrics for the runner containing the pre-job metrics.
         flavor: The flavor of the runner.
         job_metrics: The metrics about the job run by the runner.
 
     Returns:
         The RunnerStart event.
     """
+    pre_job_metrics = cast(PreJobMetrics, runner_metrics.pre_job)
     # When a job gets picked up directly after spawning, the runner_metrics installed timestamp
     # might be higher than the pre-job timestamp. This is due to the fact that we issue the runner
     # installed timestamp for Openstack after waiting with delays for the runner to be ready.
     # We set the idle_duration to 0 in this case.
-    if runner_metrics.pre_job.timestamp < runner_metrics.installed_timestamp:
+    if pre_job_metrics.timestamp < runner_metrics.installed_timestamp:
         logger.warning(
             "Pre-job timestamp %d is before installed timestamp %d for runner %s."
             " Setting idle_duration to zero",
-            runner_metrics.pre_job.timestamp,
+            pre_job_metrics.timestamp,
             runner_metrics.installed_timestamp,
             runner_metrics.runner_name,
         )
-    idle_duration = max(runner_metrics.pre_job.timestamp - runner_metrics.installed_timestamp, 0)
+    idle_duration = max(pre_job_metrics.timestamp - runner_metrics.installed_timestamp, 0)
 
     # GitHub API returns started_at < created_at in some rare cases.
     if job_metrics and job_metrics.queue_duration < 0:
@@ -323,11 +325,11 @@ def _create_runner_start(
     queue_duration = max(job_metrics.queue_duration, 0) if job_metrics else None
 
     return metric_events.RunnerStart(
-        timestamp=runner_metrics.pre_job.timestamp,
+        timestamp=pre_job_metrics.timestamp,
         flavor=flavor,
-        workflow=runner_metrics.pre_job.workflow,
-        repo=runner_metrics.pre_job.repository,
-        github_event=runner_metrics.pre_job.event,
+        workflow=pre_job_metrics.workflow,
+        repo=pre_job_metrics.repository,
+        github_event=pre_job_metrics.event,
         idle=idle_duration,
         queue_duration=queue_duration,
     )
@@ -338,23 +340,18 @@ def _create_runner_stop(
 ) -> metric_events.RunnerStop:
     """Create the RunnerStop event.
 
-    Expects that the runner_metrics.post_job is not None.
+    Expects that the runner_metrics.pre_job and runner_metrics.post_job is not None.
 
     Args:
-        runner_metrics: The metrics for the runner.
+        runner_metrics: The metrics for the runner containing the pre- and post-job metrics.
         flavor: The flavor of the runner.
         job_metrics: The metrics about the job run by the runner.
-
-    Raises:
-        RunnerMetricsError: Post job runner metric not found. Should not happen.
 
     Returns:
         The RunnerStop event.
     """
-    if runner_metrics.post_job is None:
-        raise RunnerMetricsError(
-            "Post job runner metric not found during RunnerStop event, contact developers"
-        )
+    pre_job_metrics = cast(PreJobMetrics, runner_metrics.pre_job)
+    post_job_metrics = cast(PostJobMetrics, runner_metrics.post_job)
 
     # When a job gets cancelled directly after spawning,
     # the post-job timestamp might be lower then the pre-job timestamp.
@@ -363,24 +360,24 @@ def _create_runner_stop(
     # job is done in edge cases. See also:
     # https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/running-scripts-before-or-after-a-job#triggering-the-scripts
     # We set the job_duration to 0 in this case.
-    if runner_metrics.post_job.timestamp < runner_metrics.pre_job.timestamp:
+    if post_job_metrics.timestamp < pre_job_metrics.timestamp:
         logger.warning(
             "Post-job timestamp %d is before pre-job timestamp %d for runner %s."
             " Setting job_duration to zero",
-            runner_metrics.post_job.timestamp,
-            runner_metrics.pre_job.timestamp,
+            post_job_metrics.timestamp,
+            pre_job_metrics.timestamp,
             runner_metrics.runner_name,
         )
-    job_duration = max(runner_metrics.post_job.timestamp - runner_metrics.pre_job.timestamp, 0)
+    job_duration = max(post_job_metrics.timestamp - pre_job_metrics.timestamp, 0)
 
     return metric_events.RunnerStop(
-        timestamp=runner_metrics.post_job.timestamp,
+        timestamp=post_job_metrics.timestamp,
         flavor=flavor,
-        workflow=runner_metrics.pre_job.workflow,
-        repo=runner_metrics.pre_job.repository,
-        github_event=runner_metrics.pre_job.event,
-        status=runner_metrics.post_job.status,
-        status_info=runner_metrics.post_job.status_info,
+        workflow=pre_job_metrics.workflow,
+        repo=pre_job_metrics.repository,
+        github_event=pre_job_metrics.event,
+        status=post_job_metrics.status,
+        status_info=post_job_metrics.status_info,
         job_duration=job_duration,
         job_conclusion=job_metrics.conclusion if job_metrics else None,
     )
