@@ -661,7 +661,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
         # the runner process, as there might still be a race condition (between writing the
         # timestamp and actually starting the runner) that could cause the runner to be marked
         # as unhealthy.
-        result = ssh_conn.run(f"[ -f {METRICS_EXCHANGE_PATH}/runner-installed.timestamp ]")
+        result = ssh_conn.run(
+            f"[ -f {METRICS_EXCHANGE_PATH}/runner-installed.timestamp ]", warn=True, timeout=30
+        )
         if not result.ok:
             logger.info(
                 "Runner installed timestamp file not found on %s, cloud-init may still run",
