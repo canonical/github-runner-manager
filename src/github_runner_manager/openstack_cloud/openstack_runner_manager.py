@@ -647,22 +647,25 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             Whether the health succeed.
         """
-
         result: invoke.runners.Result = ssh_conn.run("cloud-init status", warn=True, timeout=30)
         if not result.ok:
-            logger.warning("cloud-init status command failed on %s: %s.", instance.server_name, result.stderr)
+            logger.warning(
+                "cloud-init status command failed on %s: %s.", instance.server_name, result.stderr
+            )
             return False
 
         # In reactive mode we use a separate process to spawn the runner, the server might be
         # ACTIVE but the runner process is not running yet. We therefore check for the existence
         # of the runner-installed.timestamp and assume the runner to be healthy if it does
         # does not exist. This is a temporary solution until we have a better way to check
-        # the runner process, as there might still be a race condition (between writing the timestamp
-        # and actually starting the runner) that could cause the runner to be marked as unhealthy.
+        # the runner process, as there might still be a race condition (between writing the
+        # timestamp and actually starting the runner) that could cause the runner to be marked
+        # as unhealthy.
         result = ssh_conn.run(f"[ -f {METRICS_EXCHANGE_PATH}/runner-installed.timestamp ]")
         if not result.ok:
             logger.info(
-                "Runner installed timestamp file not found on %s, cloud-init may still run", instance.server_name
+                "Runner installed timestamp file not found on %s, cloud-init may still run",
+                instance.server_name,
             )
             if datetime.now() - instance.created_at >= timedelta(hours=1):
                 logger.error(
@@ -677,13 +680,15 @@ class OpenStackRunnerManager(CloudRunnerManager):
             return accept_finished_job
         result = ssh_conn.run("ps aux", warn=True, timeout=30)
         if not result.ok:
-            logger.warning("SSH run of `ps aux` failed on %s: %s", name, result.stderr)
+            logger.warning(
+                "SSH run of `ps aux` failed on %s: %s", instance.server_name, result.stderr
+            )
             return False
         if (
             RUNNER_WORKER_PROCESS not in result.stdout
             and RUNNER_LISTENER_PROCESS not in result.stdout
         ):
-            logger.warning("Runner process not found on %s", name)
+            logger.warning("Runner process not found on %s", instance.server_name)
             return False
         return True
 
