@@ -144,13 +144,14 @@ def test_extract(runner_fs_base: Path):
     """
     arrange: \
         1. A runner with all metrics inside metrics storage. \
-        2. A runner without installed_timestamp file inside metrics storage.
+        2. A runner without installation_start_timestamp file inside metrics storage.
         3. A runner with no post-job metrics inside metrics storage. \
-        3. A runner with no metrics except installed_timestamp inside metrics storage.
+        4. A runner with only installation_start and installed_timestamp inside metrics storage.
+        5. A runner with no metrics except installation_start_timestamp inside metrics storage.
     act: Call extract
     assert: All shared filesystems are removed and for runners
-        1. - 3. metrics are extracted
-        4. no metrics are extracted
+        1. - 4. metrics are extracted
+        5. no metrics are extracted
     """
     runner_all_metrics_name = secrets.token_hex(16)
     runner_all_metrics = _create_metrics_data(runner_all_metrics_name)
@@ -163,6 +164,13 @@ def test_extract(runner_fs_base: Path):
     runner_without_post_job_metrics = runner_all_metrics.copy()
     runner_without_post_job_metrics.post_job = None
     runner_without_post_job_metrics.runner_name = runner_wihout_post_job_name
+    runner_with_only_install_timestamps_name = secrets.token_hex(16)
+    runner_with_only_install_timestamps_metrics = runner_without_post_job_metrics.copy(
+        update={"pre_job": None}
+    )
+    runner_with_only_install_timestamps_metrics.runner_name = (
+        runner_with_only_install_timestamps_name
+    )
 
     # 1. Runner has all metrics inside metrics storage
     runner1_fs = _create_runner_files(
@@ -194,8 +202,18 @@ def test_extract(runner_fs_base: Path):
         str(runner_without_post_job_metrics.installation_start_timestamp),
     )
 
-    # 4. Runner has no metrics except installed_timestamp inside metrics storage
-    runner4_fs = _create_runner_files(runner_fs_base, secrets.token_hex(16), None, None, "5")
+    # 4. Runner has only installation_start and installed_timestamp inside metrics storage
+    runner4_fs = _create_runner_files(
+        runner_fs_base,
+        runner_with_only_install_timestamps_name,
+        None,
+        None,
+        str(runner_with_only_install_timestamps_metrics.installed_timestamp),
+        str(runner_with_only_install_timestamps_metrics.installation_start_timestamp),
+    )
+
+    # 5. A runner with no metrics except installation_start_timestamp inside metrics storage.
+    runner5_fs = _create_runner_files(runner_fs_base, secrets.token_hex(16), None, None, None, "5")
 
     metrics_storage_manager = MagicMock()
     metrics_storage_manager.list_all.return_value = [
@@ -203,6 +221,7 @@ def test_extract(runner_fs_base: Path):
         runner2_fs,
         runner3_fs,
         runner4_fs,
+        runner5_fs,
     ]
 
     extracted_metrics = list(
@@ -213,6 +232,7 @@ def test_extract(runner_fs_base: Path):
         runner_all_metrics,
         runner_without_install_start_ts_metrics,
         runner_without_post_job_metrics,
+        runner_with_only_install_timestamps_metrics,
     ]
     metrics_storage_manager.delete.assert_has_calls(
         [
@@ -220,6 +240,7 @@ def test_extract(runner_fs_base: Path):
             ((runner2_fs.runner_name,),),
             ((runner3_fs.runner_name,),),
             ((runner4_fs.runner_name,),),
+            ((runner5_fs.runner_name,),),
         ]
     )
 
@@ -694,19 +715,33 @@ def test_issue_events_post_job_before_pre_job(issue_event_mock: MagicMock):
         pytest.param(False, id="without installation start ts"),
     ],
 )
-def test_issue_events_no_post_job_metrics(
-    with_installation_start: bool, issue_event_mock: MagicMock
+@pytest.mark.parametrize(
+    "with_pre_job, with_post_job",
+    [
+        pytest.param(True, True, id="with pre_job, with_post_job"),
+        pytest.param(True, False, id="with pre_job, without_post_job"),
+        pytest.param(False, False, id="without pre_job and post_job"),
+    ],
+)
+def test_issue_events_partial_metrics(
+    with_installation_start: bool,
+    with_pre_job: bool,
+    with_post_job: bool,
+    issue_event_mock: MagicMock,
 ):
     """
-    arrange: A runner without post-job metrics.
+    arrange: A runner with partial metrics.
     act: Call issue_events.
-    assert: Only RunnerStart metric is issued.
+    assert: Only the expected metrics are issued.
     """
     runner_name = secrets.token_hex(16)
     runner_metrics_data = _create_metrics_data(runner_name)
     if not with_installation_start:
         runner_metrics_data.installation_start_timestamp = None
-    runner_metrics_data.post_job = None
+    if not with_pre_job:
+        runner_metrics_data.pre_job = None
+    if not with_post_job:
+        runner_metrics_data.post_job = None
     flavor = secrets.token_hex(16)
     job_metrics = metrics_type.GithubJobMetrics(
         queue_duration=3600, conclusion=JobConclusion.SUCCESS
@@ -715,21 +750,11 @@ def test_issue_events_no_post_job_metrics(
         runner_metrics=runner_metrics_data, flavor=flavor, job_metrics=job_metrics
     )
 
-    assert issued_metrics == {metric_events.RunnerStart} | (
-        {metric_events.RunnerInstalled} if with_installation_start else set()
-    )
+    expected_metrics = {metric_events.RunnerInstalled} if with_installation_start else set()
+    expected_metrics |= {metric_events.RunnerStart} if with_pre_job else set()
+    expected_metrics |= {metric_events.RunnerStop} if with_post_job else set()
+    assert issued_metrics == expected_metrics
 
-    issue_event_mock.assert_any_call(
-        RunnerStart(
-            timestamp=runner_metrics_data.pre_job.timestamp,
-            flavor=flavor,
-            workflow=runner_metrics_data.pre_job.workflow,
-            repo=runner_metrics_data.pre_job.repository,
-            github_event=runner_metrics_data.pre_job.event,
-            idle=runner_metrics_data.pre_job.timestamp - runner_metrics_data.installed_timestamp,
-            queue_duration=job_metrics.queue_duration,
-        )
-    )
     if with_installation_start:
         issue_event_mock.assert_any_call(
             RunnerInstalled(
@@ -737,6 +762,34 @@ def test_issue_events_no_post_job_metrics(
                 flavor=flavor,
                 duration=runner_metrics_data.installed_timestamp
                 - runner_metrics_data.installation_start_timestamp,
+            )
+        )
+
+    if with_pre_job:
+        issue_event_mock.assert_any_call(
+            RunnerStart(
+                timestamp=runner_metrics_data.pre_job.timestamp,
+                flavor=flavor,
+                workflow=runner_metrics_data.pre_job.workflow,
+                repo=runner_metrics_data.pre_job.repository,
+                github_event=runner_metrics_data.pre_job.event,
+                idle=runner_metrics_data.pre_job.timestamp
+                - runner_metrics_data.installed_timestamp,
+                queue_duration=job_metrics.queue_duration,
+            )
+        )
+
+    if with_post_job:
+        issue_event_mock.assert_any_call(
+            RunnerStart(
+                timestamp=runner_metrics_data.pre_job.timestamp,
+                flavor=flavor,
+                workflow=runner_metrics_data.pre_job.workflow,
+                repo=runner_metrics_data.pre_job.repository,
+                github_event=runner_metrics_data.pre_job.event,
+                idle=runner_metrics_data.pre_job.timestamp
+                - runner_metrics_data.installed_timestamp,
+                queue_duration=job_metrics.queue_duration,
             )
         )
 

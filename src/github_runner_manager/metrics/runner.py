@@ -102,7 +102,7 @@ class RunnerMetrics(BaseModel):
 
     installation_start_timestamp: Optional[NonNegativeFloat]
     installed_timestamp: NonNegativeFloat
-    pre_job: PreJobMetrics
+    pre_job: Optional[PreJobMetrics]
     post_job: Optional[PostJobMetrics]
     runner_name: str
 
@@ -167,18 +167,18 @@ def issue_events(
             return issued_events
         issued_events.add(metric_events.RunnerInstalled)
 
-    if not _issue_runner_start(
+    if runner_metrics.pre_job and _issue_runner_start(
         runner_metrics=runner_metrics, flavor=flavor, job_metrics=job_metrics
     ):
+        issued_events.add(metric_events.RunnerStart)
+    else:
         # Return to not issuing RunnerStop metrics if RunnerStart metric could not be issued.
         return issued_events
-    issued_events.add(metric_events.RunnerStart)
 
-    if runner_metrics.post_job:
-        if _issue_runner_stop(
-            runner_metrics=runner_metrics, flavor=flavor, job_metrics=job_metrics
-        ):
-            issued_events.add(metric_events.RunnerStop)
+    if runner_metrics.post_job and _issue_runner_stop(
+        runner_metrics=runner_metrics, flavor=flavor, job_metrics=job_metrics
+    ):
+        issued_events.add(metric_events.RunnerStop)
 
     return issued_events
 
@@ -397,7 +397,7 @@ def _extract_storage(
         metrics_storage: The metrics storage for a specific runner.
 
     Returns:
-        The extracted metrics if at least the pre-job metrics are present.
+        The extracted metrics if at least the runner-installation start or pre-job metrics are present.
     """
     runner_name = metrics_storage.runner_name
     try:
@@ -422,7 +422,7 @@ def _extract_metrics_from_storage(metrics_storage: MetricsStorage) -> Optional[R
         metrics_storage: The metrics storage for a specific runner.
 
     Returns:
-        The extracted metrics if at least the pre-job metrics are present.
+        The extracted metrics if at least the installed timestamp is present.
 
     Raises:
         CorruptMetricDataError: Raised if one of the files is not valid or too large.
@@ -446,24 +446,28 @@ def _extract_metrics_from_storage(metrics_storage: MetricsStorage) -> Optional[R
     logger.debug("Runner %s installed at %s", runner_name, installed_timestamp)
     if not installed_timestamp:
         logger.error(
-            "installed timestamp not found for runner %s, stop extracting metrics.", runner_name
+            "installed timestamp not found for runner %s, will not extract any metrics.",
+            runner_name,
         )
         return None
 
     pre_job_metrics = _extract_json_file_from_storage(
         metrics_storage=metrics_storage, filename=PRE_JOB_METRICS_FILE_NAME
     )
-    if not pre_job_metrics:
-        logger.error(
-            "Pre-job metrics for runner %s not found, stop extracting metrics.", runner_name
-        )
-        return None
-    logger.debug("Pre-job metrics for runner %s: %s", runner_name, pre_job_metrics)
+    if pre_job_metrics:
 
-    post_job_metrics = _extract_json_file_from_storage(
-        metrics_storage=metrics_storage, filename=POST_JOB_METRICS_FILE_NAME
-    )
-    logger.debug("Post-job metrics for runner %s: %s", runner_name, post_job_metrics)
+        logger.debug("Pre-job metrics for runner %s: %s", runner_name, pre_job_metrics)
+
+        post_job_metrics = _extract_json_file_from_storage(
+            metrics_storage=metrics_storage, filename=POST_JOB_METRICS_FILE_NAME
+        )
+        logger.debug("Post-job metrics for runner %s: %s", runner_name, post_job_metrics)
+    else:
+        logger.error(
+            "Pre-job metrics for runner %s not found, stop extracting post-jobs metrics.",
+            runner_name,
+        )
+        post_job_metrics = None
 
     try:
         return RunnerMetrics(
@@ -471,7 +475,7 @@ def _extract_metrics_from_storage(metrics_storage: MetricsStorage) -> Optional[R
                 float(installation_start_timestamp) if installation_start_timestamp else None
             ),
             installed_timestamp=float(installed_timestamp),
-            pre_job=PreJobMetrics(**pre_job_metrics),
+            pre_job=PreJobMetrics(**pre_job_metrics) if pre_job_metrics else None,
             post_job=PostJobMetrics(**post_job_metrics) if post_job_metrics else None,
             runner_name=runner_name,
         )

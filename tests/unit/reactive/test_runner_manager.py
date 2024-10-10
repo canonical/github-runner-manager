@@ -303,7 +303,7 @@ def test_reconcile_returns_issued_metrics(
             1,
             5,
             default_cleanup_stats,
-default_delete_stats,
+            default_delete_stats,
             dict(),
             default_cleanup_stats,
             id="positive runner diff with empty flush stats",
@@ -317,7 +317,9 @@ default_delete_stats,
             default_flush_stats,
             id="positive runner diff with empty cleanup stats",
         ),
-        pytest.param(1, 5, dict(), dict(), dict(), dict(), id="positive runner diff with empty stats"),
+        pytest.param(
+            1, 5, dict(), dict(), dict(), dict(), id="positive runner diff with empty stats"
+        ),
         pytest.param(
             0,
             0,

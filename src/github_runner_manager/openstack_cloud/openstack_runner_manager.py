@@ -220,6 +220,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         logger.debug("Waiting for runner process to be running: %s", instance.server_name)
         self._wait_runner_running(instance)
 
+        logger.info("Runner %s created successfully", instance.server_name)
         return instance_id
 
     def get_runner(self, instance_id: InstanceId) -> CloudRunnerInstance | None:
