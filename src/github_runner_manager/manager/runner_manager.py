@@ -120,7 +120,7 @@ class RunnerManager:
             prefix=self.name_prefix, token=self._config.token, path=self._config.path
         )
 
-    def create_runners(self, num: int) -> tuple[InstanceId]:
+    def create_runners(self, num: int) -> tuple[InstanceId, ...]:
         """Create runners.
 
         Args:

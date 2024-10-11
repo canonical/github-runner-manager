@@ -194,6 +194,7 @@ def _issue_runner_installed(runner_metrics: RunnerMetrics, flavor: str) -> bool:
     Returns:
         True if the metric was issued successfully.
     """
+    logger.debug("Issuing RunnerInstalled metric for runner %s", runner_metrics.runner_name)
     try:
         metric_events.issue_event(
             metric_events.RunnerInstalled(
@@ -227,6 +228,7 @@ def _issue_runner_start(
     """
     runner_start_event = _create_runner_start(runner_metrics, flavor, job_metrics)
 
+    logger.debug("Issuing RunnerStart metric for runner %s", runner_metrics.runner_name)
     try:
         metric_events.issue_event(runner_start_event)
     except ValidationError:
@@ -265,6 +267,7 @@ def _issue_runner_stop(
     """
     runner_stop_event = _create_runner_stop(runner_metrics, flavor, job_metrics)
 
+    logger.debug("Issuing RunnerStop metric for runner %s", runner_metrics.runner_name)
     try:
         metric_events.issue_event(runner_stop_event)
     except ValidationError:
