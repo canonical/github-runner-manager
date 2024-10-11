@@ -12,7 +12,7 @@ Collection of functions related to health checks for a runner VM.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/health_checks.py#L25"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/health_checks.py#L27"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `check_runner`
 
@@ -40,7 +40,7 @@ Run health check on a runner.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/health_checks.py#L76"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/health_checks.py#L54"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `check_active_runner`
 
@@ -65,6 +65,6 @@ Run a health check for a runner whose openstack instance is ACTIVE.
 
 
 **Returns:**
- Whether the health succeed. 
+ Whether the runner should be considered healthy. 
 
 

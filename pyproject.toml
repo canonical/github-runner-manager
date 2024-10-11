@@ -46,7 +46,7 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 80  # TODO: review comment: reason for coverage drop is outsourcing of health check from openstack_runner_manager into own module
+fail_under = 79  # TODO: review comment: reason for coverage drop is outsourcing of health check from openstack_runner_manager into own module
 show_missing = true
 
 
