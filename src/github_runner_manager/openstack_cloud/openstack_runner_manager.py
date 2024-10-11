@@ -318,7 +318,8 @@ class OpenStackRunnerManager(CloudRunnerManager):
         logger.debug("Extract metrics for runner %s %s", instance_id, instance.server_name)
         extracted_metrics = runner_metrics.extract(
             metrics_storage_manager=self._metrics_storage_manager,
-            runners=set([instance.server_name]),
+            runners={instance.server_name},
+            include=True,
         )
         return next(extracted_metrics, None)
 
