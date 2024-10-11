@@ -41,6 +41,7 @@ from github_runner_manager.metrics import runner as runner_metrics
 from github_runner_manager.metrics import storage as metrics_storage
 from github_runner_manager.openstack_cloud import health_checks
 from github_runner_manager.openstack_cloud.constants import (
+    CREATE_SERVER_TIMEOUT,
     METRICS_EXCHANGE_PATH,
     RUNNER_LISTENER_PROCESS,
     RUNNER_WORKER_PROCESS,
@@ -62,7 +63,7 @@ MAX_METRICS_FILE_SIZE = 1024
 
 RUNNER_STARTUP_PROCESS = "/home/ubuntu/actions-runner/run.sh"
 
-CREATE_SERVER_TIMEOUT = 5 * 60
+OUTDATED_METRICS_STORAGE_IN_SECONDS = CREATE_SERVER_TIMEOUT + 30  # add a bit on top of the timeout
 
 
 class _GithubRunnerRemoveError(Exception):
@@ -365,8 +366,11 @@ class OpenStackRunnerManager(CloudRunnerManager):
         """
         logger.debug("Getting runner healths for cleanup.")
         runners = self._get_runners_health()
+
         healthy_runner_names = {runner.server_name for runner in runners.healthy}
+        unhealthy_runner_names = {runner.server_name for runner in runners.unhealthy}
         logger.debug("Healthy runners: %s", healthy_runner_names)
+        logger.debug("Unhealthy runners: %s", unhealthy_runner_names)
 
         logger.debug("Deleting unhealthy runners.")
         for runner in runners.unhealthy:
@@ -374,12 +378,45 @@ class OpenStackRunnerManager(CloudRunnerManager):
         logger.debug("Cleaning up runner resources.")
         self._openstack_cloud.cleanup()
         logger.debug("Cleanup completed successfully.")
+
         logger.debug("Extracting metrics.")
-        metrics = runner_metrics.extract(
+        return self._cleanup_extract_metrics(healthy_runner_names, unhealthy_runner_names)
+
+    def _cleanup_extract_metrics(
+        self, healthy_runner_names: set[str], unhealthy_runner_names: set[str]
+    ) -> Iterator[runner_metrics.RunnerMetrics]:
+        """Extract metrics for unhealthy runners and dangling metrics storage.
+
+        Args:
+            healthy_runner_names: The names of healthy runners.
+            unhealthy_runner_names: The names of unhealthy runners.
+
+        Returns:
+            Any metrics retrieved from unhealthy runners and dangling storage.
+        """
+        # We want to extract metrics for unhealthy runners(runners to clean up).
+        # But there may be runners under construction
+        # (not marked as healthy and unhealthy because they do not yet exist in OpenStack)
+        # that should not be cleaned up.
+        # On the other hand, there could be storage for runners from the past that
+        # should be cleaned up.
+        all_runner_names = healthy_runner_names | unhealthy_runner_names
+        undecided_metrics_storage = {
+            ms
+            for ms in self._metrics_storage_manager.list_all()
+            if ms.runner_name not in all_runner_names
+        }
+        # We assume that storage is dangling if it has not been updated for a long time.
+        dangling_storage_runner_names = {
+            ms.runner_name
+            for ms in undecided_metrics_storage
+            if ms.path.stat().st_mtime < time.time() - OUTDATED_METRICS_STORAGE_IN_SECONDS
+        }
+        return runner_metrics.extract(
             metrics_storage_manager=self._metrics_storage_manager,
-            runners=healthy_runner_names,
+            runners=unhealthy_runner_names | dangling_storage_runner_names,
+            include=True,
         )
-        return metrics
 
     def _delete_runner(self, instance: OpenstackInstance, remove_token: str) -> None:
         """Delete self-hosted runners by openstack instance.

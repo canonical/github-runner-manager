@@ -443,13 +443,13 @@ def _extract_metrics_from_storage(metrics_storage: MetricsStorage) -> Optional[R
     installed_timestamp = _extract_file_from_storage(
         metrics_storage=metrics_storage, filename=RUNNER_INSTALLED_TS_FILE_NAME
     )
-    logger.debug("Runner %s installed at %s", runner_name, installed_timestamp)
     if not installed_timestamp:
         logger.error(
             "installed timestamp not found for runner %s, will not extract any metrics.",
             runner_name,
         )
         return None
+    logger.debug("Runner %s installed at %s", runner_name, installed_timestamp)
 
     pre_job_metrics = _extract_json_file_from_storage(
         metrics_storage=metrics_storage, filename=PRE_JOB_METRICS_FILE_NAME

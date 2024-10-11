@@ -24,6 +24,7 @@ from openstack.network.v2.security_group import SecurityGroup as OpenstackSecuri
 from paramiko.ssh_exception import NoValidConnectionsError
 
 from github_runner_manager.errors import KeyfileError, OpenStackError, SSHError
+from github_runner_manager.openstack_cloud.constants import CREATE_SERVER_TIMEOUT
 from github_runner_manager.utilities import retry
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,6 @@ _CLOUDS_YAML_PATH = Path.home() / ".config/openstack/clouds.yaml"
 # Update the version when the security group rules are not backward compatible.
 _SECURITY_GROUP_NAME = "github-runner-v1"
 
-_CREATE_SERVER_TIMEOUT = 5 * 60
 _SSH_TIMEOUT = 30
 _TEST_STRING = "test_string"
 
@@ -192,7 +192,7 @@ class OpenstackCloud:
                     security_groups=[security_group.id],
                     userdata=cloud_init,
                     auto_ip=False,
-                    timeout=_CREATE_SERVER_TIMEOUT,
+                    timeout=CREATE_SERVER_TIMEOUT,
                     wait=True,
                 )
             except openstack.exceptions.ResourceTimeout as err:

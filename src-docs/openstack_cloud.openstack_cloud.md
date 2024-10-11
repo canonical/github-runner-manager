@@ -5,6 +5,9 @@
 # <kbd>module</kbd> `openstack_cloud.openstack_cloud`
 Class for accessing OpenStack API for managing servers. 
 
+**Global Variables**
+---------------
+- **CREATE_SERVER_TIMEOUT**
 
 
 ---
