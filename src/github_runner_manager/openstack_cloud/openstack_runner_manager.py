@@ -7,7 +7,6 @@ import logging
 import secrets
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Iterator, Sequence
 
@@ -40,6 +39,12 @@ from github_runner_manager.manager.cloud_runner_manager import (
 from github_runner_manager.manager.runner_manager import HealthState
 from github_runner_manager.metrics import runner as runner_metrics
 from github_runner_manager.metrics import storage as metrics_storage
+from github_runner_manager.openstack_cloud import health_checks
+from github_runner_manager.openstack_cloud.constants import (
+    METRICS_EXCHANGE_PATH,
+    RUNNER_LISTENER_PROCESS,
+    RUNNER_WORKER_PROCESS,
+)
 from github_runner_manager.openstack_cloud.openstack_cloud import OpenstackCloud, OpenstackInstance
 from github_runner_manager.repo_policy_compliance_client import RepoPolicyComplianceClient
 from github_runner_manager.types_ import SystemUserConfig
@@ -52,13 +57,11 @@ BUILD_OPENSTACK_IMAGE_SCRIPT_FILENAME = "scripts/build-openstack-image.sh"
 _CONFIG_SCRIPT_PATH = Path("/home/ubuntu/actions-runner/config.sh")
 
 RUNNER_APPLICATION = Path("/home/ubuntu/actions-runner")
-METRICS_EXCHANGE_PATH = Path("/home/ubuntu/metrics-exchange")
 PRE_JOB_SCRIPT = RUNNER_APPLICATION / "pre-job.sh"
 MAX_METRICS_FILE_SIZE = 1024
 
 RUNNER_STARTUP_PROCESS = "/home/ubuntu/actions-runner/run.sh"
-RUNNER_LISTENER_PROCESS = "Runner.Listener"
-RUNNER_WORKER_PROCESS = "Runner.Worker"
+
 CREATE_SERVER_TIMEOUT = 5 * 60
 
 
@@ -237,7 +240,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
         logger.debug(
             "Runner info fetched, checking health %s %s", instance_id, instance.server_name
         )
-        healthy = self._runner_health_check(instance=instance)
+        healthy = health_checks.check_runner(
+            openstack_cloud=self._openstack_cloud, instance=instance
+        )
         logger.debug("Runner health check completed %s %s", instance.server_name, healthy)
         return (
             CloudRunnerInstance(
@@ -269,7 +274,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
                 instance_id=instance.instance_id,
                 health=(
                     HealthState.HEALTHY
-                    if self._runner_health_check(instance)
+                    if health_checks.check_runner(
+                        openstack_cloud=self._openstack_cloud, instance=instance
+                    )
                     else HealthState.UNHEALTHY
                 ),
                 state=CloudRunnerState.from_openstack_server_status(instance.status),
@@ -419,52 +426,11 @@ class OpenStackRunnerManager(CloudRunnerManager):
 
         healthy, unhealthy = [], []
         for runner in runner_list:
-            if self._runner_health_check(runner):
+            if health_checks.check_runner(openstack_cloud=self._openstack_cloud, instance=runner):
                 healthy.append(runner)
             else:
                 unhealthy.append(runner)
         return _RunnerHealth(healthy=tuple(healthy), unhealthy=tuple(unhealthy))
-
-    def _runner_health_check(self, instance: OpenstackInstance) -> bool:
-        """Run health check on a runner.
-
-        Args:
-            instance: The instance hosting the runner to run health check on.
-
-        Returns:
-            True if runner is healthy.
-        """
-        cloud_state = CloudRunnerState.from_openstack_server_status(instance.status)
-        logger.debug("Cloud state of %s: %s", instance.server_name, cloud_state)
-        if cloud_state in (
-            CloudRunnerState.DELETED,
-            CloudRunnerState.STOPPED,
-        ):
-            return False
-
-        if cloud_state in (CloudRunnerState.ERROR, CloudRunnerState.UNKNOWN):
-            logger.error(
-                "Instance in unexpected status, failing health check. %s: %s (%s)",
-                cloud_state,
-                instance.server_name,
-                instance.server_id,
-            )
-            return False
-        if cloud_state in (CloudRunnerState.CREATED,):
-            if datetime.now() - instance.created_at >= timedelta(hours=1):
-                logger.error(
-                    "Instance in created status for too long, failing health check. %s: %s (%s)",
-                    cloud_state,
-                    instance.server_name,
-                    instance.server_id,
-                )
-                return False
-            return True
-        try:
-            return self._health_check(instance)
-        except SSHError:
-            logger.exception("SSH Failed on %s, marking as unhealthy.")
-            return False
 
     def _generate_cloud_init(self, instance_name: str, registration_token: str) -> str:
         """Generate cloud init userdata.
@@ -606,94 +572,6 @@ class OpenStackRunnerManager(CloudRunnerManager):
             result.stderr,
         )
 
-    @retry(tries=3, delay=5, backoff=2, local_logger=logger)
-    def _health_check(self, instance: OpenstackInstance) -> bool:
-        """Check whether runner is healthy.
-
-        Args:
-            instance: The OpenStack instance to conduit the health check.
-
-        Raises:
-            SSHError: Unable to get a SSH connection to the instance.
-
-        Returns:
-            Whether the runner is healthy.
-        """
-        try:
-            ssh_conn = self._openstack_cloud.get_ssh_connection(instance)
-        except KeyfileError:
-            logger.exception(
-                "Health check failed due to unable to find keyfile for %s", instance.server_name
-            )
-            return False
-        except SSHError:
-            logger.exception(
-                "SSH connection failure with %s during health check", instance.server_name
-            )
-            raise
-        return OpenStackRunnerManager._run_health_check(ssh_conn, instance)
-
-    @staticmethod
-    def _run_health_check(
-        ssh_conn: SSHConnection, instance: OpenstackInstance, accept_finished_job: bool = False
-    ) -> bool:
-        """Run a health check for runner process.
-
-        Args:
-            ssh_conn: The SSH connection to the runner.
-            instance: The OpenStack instance to conduit the health check.
-            accept_finished_job: Whether a job that has finished should be marked healthy.
-
-        Returns:
-            Whether the health succeed.
-        """
-        result: invoke.runners.Result = ssh_conn.run("cloud-init status", warn=True, timeout=30)
-        if not result.ok:
-            logger.warning(
-                "cloud-init status command failed on %s: %s.", instance.server_name, result.stderr
-            )
-            return False
-
-        # In reactive mode we use a separate process to spawn the runner, the server might be
-        # ACTIVE but the runner process is not running yet. We therefore check for the existence
-        # of the runner-installed.timestamp and assume the runner to be healthy if it does
-        # does not exist. This is a temporary solution until we have a better way to check
-        # the runner process, as there might still be a race condition (between writing the
-        # timestamp and actually starting the runner) that could cause the runner to be marked
-        # as unhealthy.
-        result = ssh_conn.run(
-            f"[ -f {METRICS_EXCHANGE_PATH}/runner-installed.timestamp ]", warn=True, timeout=30
-        )
-        if not result.ok:
-            logger.info(
-                "Runner installed timestamp file not found on %s, cloud-init may still run",
-                instance.server_name,
-            )
-            if datetime.now() - instance.created_at >= timedelta(hours=1):
-                logger.error(
-                    "Instance in building status for too long, failing health check. %s (%s)",
-                    instance.server_name,
-                    instance.server_id,
-                )
-                return False
-            return True
-
-        if CloudInitStatus.DONE in result.stdout:
-            return accept_finished_job
-        result = ssh_conn.run("ps aux", warn=True, timeout=30)
-        if not result.ok:
-            logger.warning(
-                "SSH run of `ps aux` failed on %s: %s", instance.server_name, result.stderr
-            )
-            return False
-        if (
-            RUNNER_WORKER_PROCESS not in result.stdout
-            and RUNNER_LISTENER_PROCESS not in result.stdout
-        ):
-            logger.warning("Runner process not found on %s", instance.server_name)
-            return False
-        return True
-
     @retry(tries=10, delay=60, local_logger=logger)
     def _wait_runner_startup(self, instance: OpenstackInstance) -> None:
         """Wait until runner is startup.
@@ -752,7 +630,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
                 f"Failed to SSH connect to {instance.server_name} openstack runner"
             ) from err
 
-        if not self._run_health_check(
+        if not health_checks.check_active_runner(
             ssh_conn=ssh_conn, instance=instance, accept_finished_job=True
         ):
             logger.info("Runner process not found on %s", instance.server_name)

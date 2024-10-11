@@ -421,7 +421,6 @@ def test_reconcile_empty_queue_returns_issued_metrics(
 
 def _set_queue_non_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set the queue size to a random value between 1 and 10.
-    result = reconcile(desired_quantity, runner_manager, runner_config)
 
     Args:
         monkeypatch: The pytest monkeypatch fixture used to patch the get_queue_size function.

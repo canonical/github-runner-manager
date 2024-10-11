@@ -28,10 +28,10 @@ from github_runner_manager.utilities import retry
 
 logger = logging.getLogger(__name__)
 
-# This file is under the root of the process. This may differ for reactive where runner-manager
-# is used instead of root for non-reactive, but the file is written newly for each
-# creation of an openstack connection, so this shouldn't be a problem. It is also planned
-# to remove the usage of this file in the future.
+# The clouds.yaml file is located in the home dir of the process owner. This may differ for
+# reactive mode, where the "runner-manager" user is used instead of root for non-reactive mode,
+# but the file is rewritten each time an openstack connection is made,
+# so this shouldn't be a problem. It is also planned to remove the use of this file in the future.
 _CLOUDS_YAML_PATH = Path.home() / ".config/openstack/clouds.yaml"
 
 # Update the version when the security group rules are not backward compatible.
