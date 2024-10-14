@@ -380,7 +380,10 @@ class OpenStackRunnerManager(CloudRunnerManager):
         logger.debug("Cleanup completed successfully.")
 
         logger.debug("Extracting metrics.")
-        return self._cleanup_extract_metrics(healthy_runner_names, unhealthy_runner_names)
+        return self._cleanup_extract_metrics(
+            healthy_runner_names=healthy_runner_names,
+            unhealthy_runner_names=unhealthy_runner_names,
+        )
 
     def _cleanup_extract_metrics(
         self, healthy_runner_names: set[str], unhealthy_runner_names: set[str]
