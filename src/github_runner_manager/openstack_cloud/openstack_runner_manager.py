@@ -39,6 +39,7 @@ from github_runner_manager.manager.cloud_runner_manager import (
 from github_runner_manager.manager.runner_manager import HealthState
 from github_runner_manager.metrics import runner as runner_metrics
 from github_runner_manager.metrics import storage as metrics_storage
+from github_runner_manager.metrics.storage import StorageManager
 from github_runner_manager.openstack_cloud import health_checks
 from github_runner_manager.openstack_cloud.constants import (
     CREATE_SERVER_TIMEOUT,
@@ -381,16 +382,21 @@ class OpenStackRunnerManager(CloudRunnerManager):
 
         logger.debug("Extracting metrics.")
         return self._cleanup_extract_metrics(
+            metrics_storage_manager=self._metrics_storage_manager,
             healthy_runner_names=healthy_runner_names,
             unhealthy_runner_names=unhealthy_runner_names,
         )
 
+    @staticmethod
     def _cleanup_extract_metrics(
-        self, healthy_runner_names: set[str], unhealthy_runner_names: set[str]
+        metrics_storage_manager: StorageManager,
+        healthy_runner_names: set[str],
+        unhealthy_runner_names: set[str],
     ) -> Iterator[runner_metrics.RunnerMetrics]:
         """Extract metrics for unhealthy runners and dangling metrics storage.
 
         Args:
+            metrics_storage_manager: The metrics storage manager.
             healthy_runner_names: The names of healthy runners.
             unhealthy_runner_names: The names of unhealthy runners.
 
@@ -406,7 +412,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         all_runner_names = healthy_runner_names | unhealthy_runner_names
         undecided_metrics_storage = {
             ms
-            for ms in self._metrics_storage_manager.list_all()
+            for ms in metrics_storage_manager.list_all()
             if ms.runner_name not in all_runner_names
         }
         # We assume that storage is dangling if it has not been updated for a long time.
@@ -416,7 +422,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
             if ms.path.stat().st_mtime < time.time() - OUTDATED_METRICS_STORAGE_IN_SECONDS
         }
         return runner_metrics.extract(
-            metrics_storage_manager=self._metrics_storage_manager,
+            metrics_storage_manager=metrics_storage_manager,
             runners=unhealthy_runner_names | dangling_storage_runner_names,
             include=True,
         )
