@@ -126,7 +126,11 @@ class RunnerScaler:
 
         if self._reactive_config is not None:
             logger.info("Reactive configuration detected, going into experimental reactive mode.")
-            return self._reconcile_reactive(quantity)
+            return reactive_runner_manager.reconcile(
+                expected_quantity=quantity,
+                runner_manager=self._manager,
+                runner_config=self._reactive_config,
+            )
 
         metric_stats = {}
         start_timestamp = time.time()
@@ -248,20 +252,3 @@ class RunnerScaler:
             )
         except IssueMetricEventError:
             logger.exception("Failed to issue Reconciliation metric")
-
-    def _reconcile_reactive(self, quantity: int) -> int:
-        """Reconcile runners reactively.
-
-        Args:
-            quantity: Number of intended runners.
-
-        Returns:
-            The difference between intended runners and actual runners. In reactive mode
-            this number is never negative as additional processes should terminate after a timeout.
-        """
-        logger.info("Reactive mode is experimental and not yet fully implemented.")
-        self._manager.cleanup()
-        return reactive_runner_manager.reconcile(
-            quantity=quantity,
-            runner_config=self._reactive_config,
-        )
