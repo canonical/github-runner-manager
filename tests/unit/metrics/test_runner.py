@@ -818,3 +818,26 @@ def test_issue_events_returns_empty_set_on_issue_event_failure(
     )
     assert not issued_metrics
     assert "Failed to issue metric" in caplog.text
+
+
+def test_issue_events_post_job_but_no_pre_job(
+    issue_event_mock: MagicMock,
+):
+    """
+    arrange: A runner with post-job metrics but no pre-job metrics.
+    act: Call issue_events.
+    assert: Only RunnerInstalled is issued.
+    """
+    runner_name = secrets.token_hex(16)
+    runner_metrics_data = _create_metrics_data(runner_name)
+    runner_metrics_data.pre_job = None
+
+    flavor = secrets.token_hex(16)
+    job_metrics = metrics_type.GithubJobMetrics(
+        queue_duration=3600, conclusion=JobConclusion.SUCCESS
+    )
+
+    issued_metrics = runner_metrics.issue_events(
+        runner_metrics=runner_metrics_data, flavor=flavor, job_metrics=job_metrics
+    )
+    assert issued_metrics == {metric_events.RunnerInstalled}

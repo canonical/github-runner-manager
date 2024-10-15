@@ -159,30 +159,57 @@ def issue_events(
     """
     issued_events: set[Type[metric_events.Event]] = set()
 
-    if runner_metrics.installation_start_timestamp:
-        if not _issue_runner_installed(runner_metrics=runner_metrics, flavor=flavor):
-            # return to not issuing Runner{Start,Stop} metrics if RunnerInstalled metric
-            # could not be issued.
-            return issued_events
-        issued_events.add(metric_events.RunnerInstalled)
+    try:
+        if runner_metrics.installation_start_timestamp:
+            _issue_runner_installed(runner_metrics=runner_metrics, flavor=flavor)
+            issued_events.add(metric_events.RunnerInstalled)
+    except IssueMetricEventError:
+        logger.exception(
+            "Could not issue RunnerInstalled event. "
+            "Will not issue RunnerStart and RunnerStop metric."
+        )
+        return set()
 
-    if runner_metrics.pre_job and _issue_runner_start(
-        runner_metrics=runner_metrics, flavor=flavor, job_metrics=job_metrics
-    ):
-        issued_events.add(metric_events.RunnerStart)
-    else:
-        # Return to not issuing RunnerStop metrics if RunnerStart metric could not be issued.
-        return issued_events
-
-    if runner_metrics.post_job and _issue_runner_stop(
-        runner_metrics=runner_metrics, flavor=flavor, job_metrics=job_metrics
-    ):
-        issued_events.add(metric_events.RunnerStop)
+    try:
+        if runner_metrics.pre_job:
+            _issue_runner_start(
+                runner_metrics=runner_metrics, flavor=flavor, job_metrics=job_metrics
+            )
+            issued_events.add(metric_events.RunnerStart)
+            if runner_metrics.post_job:
+                _issue_runner_stop(
+                    runner_metrics=runner_metrics, flavor=flavor, job_metrics=job_metrics
+                )
+                issued_events.add(metric_events.RunnerStop)
+        else:
+            logger.debug(
+                "Pre-job metrics not found for runner %s. Will not issue RunnerStop metric.",
+                runner_metrics.runner_name,
+            )
+    except (ValidationError, IssueMetricEventError):
+        if metric_events.RunnerStart not in issued_events:
+            logger.exception(
+                "Not able to issue RunnerStart metric for "
+                "runner %s with pre-job metrics %s and job_metrics %s."
+                "Will not issue RunnerStop metric.",
+                runner_metrics.runner_name,
+                runner_metrics.pre_job,
+                job_metrics,
+            )
+        else:
+            logger.exception(
+                "Not able to issue RunnerStop metric for "
+                "runner %s with pre-job metrics %s, post-job metrics %s and job_metrics %s.",
+                runner_metrics.runner_name,
+                runner_metrics.pre_job,
+                runner_metrics.post_job,
+                job_metrics,
+            )
 
     return issued_events
 
 
-def _issue_runner_installed(runner_metrics: RunnerMetrics, flavor: str) -> bool:
+def _issue_runner_installed(runner_metrics: RunnerMetrics, flavor: str) -> None:
     """Issue the RunnerInstalled metric for a runner.
 
     Assumes that the runner installed timestamp is present.
@@ -190,102 +217,48 @@ def _issue_runner_installed(runner_metrics: RunnerMetrics, flavor: str) -> bool:
     Args:
         runner_metrics: The metrics for the runner.
         flavor: The flavor of the runner.
-
-    Returns:
-        True if the metric was issued successfully.
     """
+    runner_installed = metric_events.RunnerInstalled(
+        timestamp=runner_metrics.installed_timestamp,
+        flavor=flavor,
+        # the installation_start_timestamp should be present
+        duration=runner_metrics.installed_timestamp  # type: ignore
+        - runner_metrics.installation_start_timestamp,  # type: ignore
+    )
     logger.debug("Issuing RunnerInstalled metric for runner %s", runner_metrics.runner_name)
-    try:
-        metric_events.issue_event(
-            metric_events.RunnerInstalled(
-                timestamp=runner_metrics.installed_timestamp,
-                flavor=flavor,
-                # the installation_start_timestamp should be present
-                duration=runner_metrics.installed_timestamp  # type: ignore
-                - runner_metrics.installation_start_timestamp,  # type: ignore
-            )
-        )
-    except IssueMetricEventError:
-        logger.exception(
-            "Failed to issue RunnerInstalled metric for runner %s.", runner_metrics.runner_name
-        )
-        return False
-    return True
+    metric_events.issue_event(runner_installed)
 
 
 def _issue_runner_start(
     runner_metrics: RunnerMetrics, flavor: str, job_metrics: Optional[GithubJobMetrics]
-) -> bool:
+) -> None:
     """Issue the RunnerStart metric for a runner.
 
     Args:
         runner_metrics: The metrics for the runner.
         flavor: The flavor of the runner.
         job_metrics: The metrics about the job run by the runner.
-
-    Returns:
-        True if the metric was issued successfully.
     """
     runner_start_event = _create_runner_start(runner_metrics, flavor, job_metrics)
 
     logger.debug("Issuing RunnerStart metric for runner %s", runner_metrics.runner_name)
-    try:
-        metric_events.issue_event(runner_start_event)
-    except ValidationError:
-        logger.exception(
-            "Not able to issue RunnerStart metric for "
-            "runner %s with pre-job metrics %s and job_metrics %s."
-            "Will not issue RunnerStop metric.",
-            runner_metrics.runner_name,
-            runner_metrics.pre_job,
-            job_metrics,
-        )
-    except IssueMetricEventError:
-        logger.exception(
-            "Not able to issue RunnerStart metric for runner %s. "
-            "Will not issue RunnerStop metric.",
-            runner_metrics.runner_name,
-        )
-    else:
-        return True
-
-    return False
+    metric_events.issue_event(runner_start_event)
 
 
 def _issue_runner_stop(
     runner_metrics: RunnerMetrics, flavor: str, job_metrics: GithubJobMetrics
-) -> bool:
+) -> None:
     """Issue the RunnerStop metric for a runner.
 
     Args:
         runner_metrics: The metrics for the runner.
         flavor: The flavor of the runner.
         job_metrics: The metrics about the job run by the runner.
-
-    Returns:
-        True if the metric was issued successfully.
     """
     runner_stop_event = _create_runner_stop(runner_metrics, flavor, job_metrics)
 
     logger.debug("Issuing RunnerStop metric for runner %s", runner_metrics.runner_name)
-    try:
-        metric_events.issue_event(runner_stop_event)
-    except ValidationError:
-        logger.exception(
-            "Not able to issue RunnerStop metric for "
-            "runner %s with pre-job metrics %s, post-job metrics %s and job_metrics %s.",
-            runner_metrics.runner_name,
-            runner_metrics.pre_job,
-            runner_metrics.post_job,
-            job_metrics,
-        )
-    except IssueMetricEventError:
-        logger.exception(
-            "Not able to issue RunnerStop metric for runner %s.", runner_metrics.runner_name
-        )
-        return False
-
-    return True
+    metric_events.issue_event(runner_stop_event)
 
 
 def _create_runner_start(
