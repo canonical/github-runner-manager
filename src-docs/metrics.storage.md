@@ -88,7 +88,7 @@ Initialize the storage manager.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L72"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L79"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `create`
 
@@ -119,7 +119,7 @@ The method is not idempotent and will raise an exception if the storage already 
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L175"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L176"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `delete`
 
@@ -143,7 +143,7 @@ Delete the metrics storage for the runner.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L155"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L156"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get`
 
@@ -172,7 +172,7 @@ Get the metrics storage for the runner.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L135"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L138"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `list_all`
 
@@ -189,7 +189,7 @@ List all the metric storages.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/storage.py#L195"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/storage.py#L194"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `move_to_quarantine`
 

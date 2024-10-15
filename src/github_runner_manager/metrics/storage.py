@@ -68,6 +68,13 @@ class StorageManager(StorageManagerProtocol):
             system_user_config: The configuration of the user owning the storage.
         """
         self._system_user_config = system_user_config
+        self._base_dir = (
+            Path(f"~{self._system_user_config.user}").expanduser() / _FILESYSTEM_BASE_DIR_NAME
+        )
+        self._quarantine_dir = (
+            Path(f"~{self._system_user_config.user}").expanduser()
+            / _FILESYSTEM_QUARANTINE_DIR_NAME
+        )
 
     def create(self, runner_name: str) -> MetricsStorage:
         """Create metrics storage for the runner.
@@ -85,11 +92,12 @@ class StorageManager(StorageManagerProtocol):
             CreateMetricsStorageError: If the creation of the shared filesystem fails.
         """
         try:
-            base_dir = self._get_filesystem_base_dir_path(self._system_user_config.user)
-            base_dir.mkdir(exist_ok=True)
+            self._base_dir.mkdir(exist_ok=True)
             # this could be executed as root (e.g. during a charm hook), therefore set permissions
             shutil.chown(
-                base_dir, user=self._system_user_config.user, group=self._system_user_config.group
+                self._base_dir,
+                user=self._system_user_config.user,
+                group=self._system_user_config.group,
             )
             logger.debug(
                 "Changed ownership of %s to %s:%s",
@@ -98,18 +106,15 @@ class StorageManager(StorageManagerProtocol):
                 self._system_user_config.group,
             )
 
-            quarantine_dir = self._get_filesystem_quarantine_dir_path(
-                self._system_user_config.user
-            )
-            quarantine_dir.mkdir(exist_ok=True)
+            self._quarantine_dir.mkdir(exist_ok=True)
             shutil.chown(
-                quarantine_dir,
+                self._quarantine_dir,
                 user=self._system_user_config.user,
                 group=self._system_user_config.group,
             )
             logger.debug(
                 "Changed ownership of %s to %s:%s",
-                quarantine_dir,
+                self._quarantine_dir,
                 self._system_user_config.user,
                 self._system_user_config.group,
             )
@@ -119,9 +124,7 @@ class StorageManager(StorageManagerProtocol):
                 "Failed to create metrics storage directories"
             ) from exc
 
-        runner_fs_path = self._get_runner_fs_path(
-            runner_name=runner_name, system_user=self._system_user_config.user
-        )
+        runner_fs_path = self._get_runner_fs_path(runner_name=runner_name)
 
         try:
             runner_fs_path.mkdir()
@@ -138,12 +141,10 @@ class StorageManager(StorageManagerProtocol):
         Yields:
             A metrics storage object.
         """
-        if not (
-            base_dir := self._get_filesystem_base_dir_path(self._system_user_config.user)
-        ).exists():
+        if not self._base_dir.exists():
             return
 
-        directories = (entry for entry in base_dir.iterdir() if entry.is_dir())
+        directories = (entry for entry in self._base_dir.iterdir() if entry.is_dir())
         for directory in directories:
             try:
                 fs = self.get(runner_name=directory.name)
@@ -165,7 +166,7 @@ class StorageManager(StorageManagerProtocol):
             GetMetricsStorageError: If the storage does not exist.
         """
         runner_fs_path = self._get_runner_fs_path(
-            runner_name=runner_name, system_user=self._system_user_config.user
+            runner_name=runner_name,
         )
         if not runner_fs_path.exists():
             raise GetMetricsStorageError(f"Metrics storage for runner {runner_name} not found.")
@@ -181,9 +182,7 @@ class StorageManager(StorageManagerProtocol):
         Raises:
             DeleteMetricsStorageError: If the storage could not be deleted.
         """
-        runner_fs_path = self._get_runner_fs_path(
-            runner_name=runner_name, system_user=self._system_user_config.user
-        )
+        runner_fs_path = self._get_runner_fs_path(runner_name=runner_name)
 
         try:
             shutil.rmtree(runner_fs_path)
@@ -211,11 +210,7 @@ class StorageManager(StorageManagerProtocol):
                 f"Failed to get metrics storage for runner {runner_name}"
             ) from exc
 
-        tarfile_path = (
-            self._get_filesystem_quarantine_dir_path(self._system_user_config.user)
-            .joinpath(runner_name)
-            .with_suffix(".tar.gz")
-        )
+        tarfile_path = self._quarantine_dir.joinpath(runner_name).with_suffix(".tar.gz")
         try:
             with tarfile.open(tarfile_path, "w:gz") as tar:
                 tar.add(runner_fs.path, arcname=runner_fs.path.name)
@@ -231,39 +226,13 @@ class StorageManager(StorageManagerProtocol):
                 f"Failed to delete metrics storage for runner {runner_name}"
             ) from exc
 
-    @staticmethod
-    def _get_runner_fs_path(runner_name: str, system_user: str) -> Path:
+    def _get_runner_fs_path(self, runner_name: str) -> Path:
         """Get the path of the runner metrics storage.
 
         Args:
             runner_name: The name of the runner.
-            system_user: The name of the system user used to determine the storage location.
 
         Returns:
             The path of the runner shared filesystem.
         """
-        return StorageManager._get_filesystem_base_dir_path(system_user) / runner_name
-
-    @staticmethod
-    def _get_filesystem_base_dir_path(system_user: str) -> Path:
-        """Get the path of the runner metrics storage.
-
-        Args:
-            system_user: The name of the system user used to determine the storage location.
-
-        Returns:
-            The path of the runner metrics storage.
-        """
-        return Path(f"~{system_user}").expanduser() / _FILESYSTEM_BASE_DIR_NAME
-
-    @staticmethod
-    def _get_filesystem_quarantine_dir_path(system_user: str) -> Path:
-        """Get the path of the runner metrics quarantine storage.
-
-        Args:
-            system_user: The name of the system user used to determine the storage location.
-
-        Returns:
-            The path of the runner metrics quarantine storage.
-        """
-        return Path(f"~{system_user}").expanduser() / _FILESYSTEM_QUARANTINE_DIR_NAME
+        return self._base_dir / runner_name
