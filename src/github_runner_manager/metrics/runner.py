@@ -99,10 +99,10 @@ class RunnerMetrics(BaseModel):
         runner_name: The name of the runner.
     """
 
-    installation_start_timestamp: Optional[NonNegativeFloat]
+    installation_start_timestamp: NonNegativeFloat | None
     installed_timestamp: NonNegativeFloat
-    pre_job: Optional[PreJobMetrics]
-    post_job: Optional[PostJobMetrics]
+    pre_job: PreJobMetrics | None
+    post_job: PostJobMetrics | None
     runner_name: str
 
 
