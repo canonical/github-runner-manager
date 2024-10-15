@@ -8,7 +8,7 @@ import logging
 from enum import Enum
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Iterator, Optional, Type, cast
+from typing import Iterator, Optional, Type
 
 from pydantic import BaseModel, Field, NonNegativeFloat, ValidationError
 
@@ -16,6 +16,7 @@ from github_runner_manager.errors import (
     CorruptMetricDataError,
     DeleteMetricsStorageError,
     IssueMetricEventError,
+    RunnerMetricsError,
 )
 from github_runner_manager.metrics import events as metric_events
 from github_runner_manager.metrics.storage import MetricsStorage
@@ -273,10 +274,16 @@ def _create_runner_start(
         flavor: The flavor of the runner.
         job_metrics: The metrics about the job run by the runner.
 
+    Raises:
+        RunnerMetricsError: Raised if the pre-job metrics are not found.
+
     Returns:
         The RunnerStart event.
     """
-    pre_job_metrics = cast(PreJobMetrics, runner_metrics.pre_job)
+    if (pre_job_metrics := runner_metrics.pre_job) is None:
+        raise RunnerMetricsError(
+            "Pre job runner metric not found during RunnerStop event, contact developers"
+        )
     # When a job gets picked up directly after spawning, the runner_metrics installed timestamp
     # might be higher than the pre-job timestamp. This is due to the fact that we issue the runner
     # installed timestamp for Openstack after waiting with delays for the runner to be ready.
@@ -323,11 +330,20 @@ def _create_runner_stop(
         flavor: The flavor of the runner.
         job_metrics: The metrics about the job run by the runner.
 
+    Raises:
+        RunnerMetricsError: Raised if the pre-job or post-job metrics are not found.
+
     Returns:
         The RunnerStop event.
     """
-    pre_job_metrics = cast(PreJobMetrics, runner_metrics.pre_job)
-    post_job_metrics = cast(PostJobMetrics, runner_metrics.post_job)
+    if (pre_job_metrics := runner_metrics.pre_job) is None:
+        raise RunnerMetricsError(
+            "Pre job runner metric not found during RunnerStop event, contact developers"
+        )
+    if (post_job_metrics := runner_metrics.post_job) is None:
+        raise RunnerMetricsError(
+            "Post job runner metric not found during RunnerStop event, contact developers"
+        )
 
     # When a job gets cancelled directly after spawning,
     # the post-job timestamp might be lower then the pre-job timestamp.
