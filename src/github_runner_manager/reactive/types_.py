@@ -3,6 +3,8 @@
 
 """Module containing reactive scheduling related types."""
 
+from typing import Annotated
+
 from pydantic import BaseModel, MongoDsn
 
 from github_runner_manager.manager.runner_manager import RunnerManagerConfig
@@ -19,7 +21,7 @@ class QueueConfig(BaseModel):
         queue_name: The name of the queue.
     """
 
-    mongodb_uri: MongoDsn
+    mongodb_uri: Annotated[str, MongoDsn]
     queue_name: str
 
 

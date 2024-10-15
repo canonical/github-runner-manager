@@ -29,7 +29,7 @@ class RepoPolicyComplianceClient:  # pylint: disable=too-few-public-methods
             charm_token: Charm token configured for the repo policy compliance service.
         """
         self._session = self._create_session()
-        self.base_url = url
+        self.base_url = str(url)
         self.token = charm_token
 
     def get_one_time_token(self) -> str:
