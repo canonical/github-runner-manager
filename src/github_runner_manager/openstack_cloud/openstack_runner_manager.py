@@ -410,7 +410,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         # On the other hand, there could be storage for runners from the past that
         # should be cleaned up.
         all_runner_names = healthy_runner_names | unhealthy_runner_names
-        undecided_metrics_storage = {
+        unmatched_metrics_storage = {
             ms
             for ms in metrics_storage_manager.list_all()
             if ms.runner_name not in all_runner_names
@@ -418,7 +418,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         # We assume that storage is dangling if it has not been updated for a long time.
         dangling_storage_runner_names = {
             ms.runner_name
-            for ms in undecided_metrics_storage
+            for ms in unmatched_metrics_storage
             if ms.path.stat().st_mtime < time.time() - OUTDATED_METRICS_STORAGE_IN_SECONDS
         }
         return runner_metrics.extract(
