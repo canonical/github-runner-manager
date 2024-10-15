@@ -19,6 +19,7 @@ from github_runner_manager.errors import (
     RunnerMetricsError,
 )
 from github_runner_manager.metrics import events as metric_events
+from github_runner_manager.metrics.events import CodeInformation
 from github_runner_manager.metrics.storage import MetricsStorage
 from github_runner_manager.metrics.storage import StorageManager as MetricsStorageManager
 from github_runner_manager.metrics.storage import move_to_quarantine
@@ -62,16 +63,6 @@ class PostJobStatus(str, Enum):
     NORMAL = "normal"
     ABNORMAL = "abnormal"
     REPO_POLICY_CHECK_FAILURE = "repo-policy-check-failure"
-
-
-class CodeInformation(BaseModel):
-    """Information about a status code.
-
-    Attributes:
-        code: The status code.
-    """
-
-    code: int
 
 
 class PostJobMetrics(BaseModel):
