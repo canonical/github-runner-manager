@@ -21,6 +21,8 @@ from github_runner_manager.utilities import retry
 
 logger = logging.getLogger(__name__)
 
+INSTANCE_IN_BUILD_MODE_TIMEOUT_IN_HOURS = 1
+
 _HealthCheckResult = bool | None  # None indicates that the check can not determine health status
 
 
@@ -141,7 +143,9 @@ def _health_check_cloud_state(instance: OpenstackInstance) -> _HealthCheckResult
         )
         return False
     if cloud_state in (CloudRunnerState.CREATED,):
-        if datetime.now() - instance.created_at >= timedelta(hours=1):
+        if datetime.now() - instance.created_at >= timedelta(
+            hours=INSTANCE_IN_BUILD_MODE_TIMEOUT_IN_HOURS
+        ):
             logger.error(
                 "Instance in created status for too long, failing health check. %s: %s (%s)",
                 cloud_state,
@@ -210,7 +214,9 @@ def _run_health_check_runner_installed(
             "Runner installed timestamp file not found on %s, cloud-init may still run",
             instance.server_name,
         )
-        if datetime.now() - instance.created_at >= timedelta(hours=1):
+        if datetime.now() - instance.created_at >= timedelta(
+            hours=INSTANCE_IN_BUILD_MODE_TIMEOUT_IN_HOURS
+        ):
             logger.error(
                 "Instance in building status for too long, failing health check. %s (%s)",
                 instance.server_name,

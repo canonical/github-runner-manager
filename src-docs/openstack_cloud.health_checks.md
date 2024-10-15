@@ -9,10 +9,11 @@ Collection of functions related to health checks for a runner VM.
 ---------------
 - **RUNNER_LISTENER_PROCESS**
 - **RUNNER_WORKER_PROCESS**
+- **INSTANCE_IN_BUILD_MODE_TIMEOUT_IN_HOURS**
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/health_checks.py#L27"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/health_checks.py#L29"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `check_runner`
 
@@ -42,7 +43,7 @@ This check applies to runners in any OpenStack state (ACTIVE, STOPPED, etc).
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/health_checks.py#L56"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/health_checks.py#L58"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `check_active_runner`
 
