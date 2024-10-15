@@ -736,7 +736,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
 
     @staticmethod
     def _generate_instance_id() -> InstanceId:
-        """Generate a instance id suffix compliant to the GitHub runner naming convention.
+        r"""Generate an instance id suffix compliant to the GitHub runner naming convention.
 
         The GitHub runner name convention is as following:
         A valid runner name is 64 characters or less in length and does not include '"', '/', ':',
