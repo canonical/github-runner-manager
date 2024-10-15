@@ -25,7 +25,9 @@ _HealthCheckResult = bool | None  # None indicates that the check can not determ
 
 
 def check_runner(openstack_cloud: OpenstackCloud, instance: OpenstackInstance) -> bool:
-    """Run health check on a runner.
+    """Run a general health check on a runner instance.
+
+    This check applies to runners in any OpenStack state (ACTIVE, STOPPED, etc).
 
     Args:
         openstack_cloud: The OpenstackCloud instance to use

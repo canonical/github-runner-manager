@@ -23,7 +23,9 @@ check_runner(
 ) → bool
 ```
 
-Run health check on a runner. 
+Run a general health check on a runner instance. 
+
+This check applies to runners in any OpenStack state (ACTIVE, STOPPED, etc). 
 
 
 
@@ -40,7 +42,7 @@ Run health check on a runner.
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/health_checks.py#L54"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/health_checks.py#L56"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `check_active_runner`
 
