@@ -3,9 +3,14 @@
 
 """Module for reconciling amount of runner and reactive runner processes."""
 import logging
+from dataclasses import dataclass
 
 from github_runner_manager.manager.github_runner_manager import GitHubRunnerState
-from github_runner_manager.manager.runner_manager import FlushMode, RunnerManager
+from github_runner_manager.manager.runner_manager import (
+    FlushMode,
+    IssuedMetricEventsStats,
+    RunnerManager,
+)
 from github_runner_manager.reactive import process_manager
 from github_runner_manager.reactive.consumer import get_queue_size
 from github_runner_manager.reactive.types_ import RunnerConfig
@@ -13,9 +18,22 @@ from github_runner_manager.reactive.types_ import RunnerConfig
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ReconcileResult:
+    """The result of the reconciliation.
+
+    Attributes:
+        processes_diff: The number of reactive processes created/removed.
+        metric_stats: The stats of the issued metric events
+    """
+
+    processes_diff: int
+    metric_stats: IssuedMetricEventsStats
+
+
 def reconcile(
     expected_quantity: int, runner_manager: RunnerManager, runner_config: RunnerConfig
-) -> int:
+) -> ReconcileResult:
     """Reconcile runners reactively.
 
     The reconciliation attempts to make the following equation true:
@@ -62,9 +80,12 @@ def reconcile(
         The number of reactive processes created. If negative, its absolute value is equal
         to the number of processes killed.
     """
-    runner_manager.cleanup()
+    cleanup_metric_stats = runner_manager.cleanup()
+    flush_metric_stats = {}
+    delete_metric_stats = {}
+
     if get_queue_size(runner_config.queue) == 0:
-        runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
+        flush_metric_stats = runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
 
     # Only count runners which are online on GitHub to prevent machines to be just in
     # construction to be counted and then killed immediately by the process manager.
@@ -76,10 +97,21 @@ def reconcile(
     if runner_diff >= 0:
         process_quantity = runner_diff
     else:
-        runner_manager.delete_runners(-runner_diff)
+        delete_metric_stats = runner_manager.delete_runners(-runner_diff)
         process_quantity = 0
 
-    return process_manager.reconcile(
+    metric_stats = {
+        event_name: delete_metric_stats.get(event_name, 0)
+        + cleanup_metric_stats.get(event_name, 0)
+        + flush_metric_stats.get(event_name, 0)
+        for event_name in set(delete_metric_stats)
+        | set(cleanup_metric_stats)
+        | set(flush_metric_stats)
+    }
+
+    processes_created = process_manager.reconcile(
         quantity=process_quantity,
         runner_config=runner_config,
     )
+
+    return ReconcileResult(processes_diff=processes_created, metric_stats=metric_stats)

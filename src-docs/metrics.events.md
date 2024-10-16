@@ -8,7 +8,7 @@ Models and functions for the metric events.
 
 ---
 
-<a href="../src/github_runner_manager/metrics/events.py#L152"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/metrics/events.py#L154"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>function</kbd> `issue_event`
 
@@ -216,6 +216,7 @@ Metric event for when the charm has finished reconciliation.
  - <b>`flavor`</b>:  Describes the characteristics of the runner.  The flavor could be for example "small". 
  - <b>`crashed_runners`</b>:  The number of crashed runners. 
  - <b>`idle_runners`</b>:  The number of idle runners. 
+ - <b>`active_runners`</b>:  The number of active runners. 
  - <b>`duration`</b>:  The duration of the reconciliation in seconds. 
 
 <a href="../src/github_runner_manager/metrics/events.py#L48"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>

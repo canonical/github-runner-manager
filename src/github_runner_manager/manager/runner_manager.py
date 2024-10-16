@@ -120,7 +120,7 @@ class RunnerManager:
             prefix=self.name_prefix, token=self._config.token, path=self._config.path
         )
 
-    def create_runners(self, num: int) -> tuple[InstanceId]:
+    def create_runners(self, num: int) -> tuple[InstanceId, ...]:
         """Create runners.
 
         Args:
@@ -341,17 +341,26 @@ class RunnerManager:
         total_stats: IssuedMetricEventsStats = {}
 
         for extracted_metrics in metrics:
-            try:
-                job_metrics = github_metrics.job(
-                    github_client=self._github.github,
-                    pre_job_metrics=extracted_metrics.pre_job,
-                    runner_name=extracted_metrics.runner_name,
+            job_metrics = None
+
+            # We need a guard because pre-job metrics may not be available for idle runners
+            # that are deleted.
+            if extracted_metrics.pre_job:
+                try:
+                    job_metrics = github_metrics.job(
+                        github_client=self._github.github,
+                        pre_job_metrics=extracted_metrics.pre_job,
+                        runner_name=extracted_metrics.runner_name,
+                    )
+                except GithubMetricsError:
+                    logger.exception(
+                        "Failed to calculate job metrics for %s", extracted_metrics.runner_name
+                    )
+            else:
+                logger.debug(
+                    "No pre-job metrics found for %s, will not calculate job metrics.",
+                    extracted_metrics.runner_name,
                 )
-            except GithubMetricsError:
-                logger.exception(
-                    "Failed to calculate job metrics for %s", extracted_metrics.runner_name
-                )
-                job_metrics = None
 
             issued_events = runner_metrics.issue_events(
                 runner_metrics=extracted_metrics,

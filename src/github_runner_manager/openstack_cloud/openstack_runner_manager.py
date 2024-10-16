@@ -7,7 +7,6 @@ import logging
 import secrets
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Iterator, Sequence
 
@@ -21,7 +20,6 @@ from fabric import Connection as SSHConnection
 from github_runner_manager.errors import (
     CreateMetricsStorageError,
     GetMetricsStorageError,
-    IssueMetricEventError,
     KeyfileError,
     MissingServerConfigError,
     OpenStackError,
@@ -39,15 +37,24 @@ from github_runner_manager.manager.cloud_runner_manager import (
     SupportServiceConfig,
 )
 from github_runner_manager.manager.runner_manager import HealthState
-from github_runner_manager.metrics import events as metric_events
 from github_runner_manager.metrics import runner as runner_metrics
 from github_runner_manager.metrics import storage as metrics_storage
+from github_runner_manager.metrics.storage import StorageManager
+from github_runner_manager.openstack_cloud import health_checks
+from github_runner_manager.openstack_cloud.constants import (
+    CREATE_SERVER_TIMEOUT,
+    METRICS_EXCHANGE_PATH,
+    RUNNER_LISTENER_PROCESS,
+    RUNNER_WORKER_PROCESS,
+)
+from github_runner_manager.openstack_cloud.openstack_cloud import OpenstackCloud, OpenstackInstance
 from github_runner_manager.openstack_cloud.openstack_cloud import (
     OpenstackCloud,
     OpenStackCredentials,
     OpenstackInstance,
 )
 from github_runner_manager.repo_policy_compliance_client import RepoPolicyComplianceClient
+from github_runner_manager.types_ import SystemUserConfig
 from github_runner_manager.types_.github import GitHubOrg
 from github_runner_manager.utilities import retry, set_env_var
 
@@ -57,14 +64,12 @@ BUILD_OPENSTACK_IMAGE_SCRIPT_FILENAME = "scripts/build-openstack-image.sh"
 _CONFIG_SCRIPT_PATH = Path("/home/ubuntu/actions-runner/config.sh")
 
 RUNNER_APPLICATION = Path("/home/ubuntu/actions-runner")
-METRICS_EXCHANGE_PATH = Path("/home/ubuntu/metrics-exchange")
 PRE_JOB_SCRIPT = RUNNER_APPLICATION / "pre-job.sh"
 MAX_METRICS_FILE_SIZE = 1024
 
 RUNNER_STARTUP_PROCESS = "/home/ubuntu/actions-runner/run.sh"
-RUNNER_LISTENER_PROCESS = "Runner.Listener"
-RUNNER_WORKER_PROCESS = "Runner.Worker"
-CREATE_SERVER_TIMEOUT = 5 * 60
+
+OUTDATED_METRICS_STORAGE_IN_SECONDS = CREATE_SERVER_TIMEOUT + 30  # add a bit on top of the timeout
 
 
 class _GithubRunnerRemoveError(Exception):
@@ -101,6 +106,7 @@ class OpenStackRunnerManagerConfig:
         server_config: The configuration for OpenStack server.
         runner_config: The configuration for the GitHub runner.
         service_config: The configuration for supporting services.
+        system_user_config: The user to use for creating metrics storage.
     """
 
     name: str
@@ -109,6 +115,7 @@ class OpenStackRunnerManagerConfig:
     server_config: OpenStackServerConfig | None
     runner_config: GitHubRunnerConfig
     service_config: SupportServiceConfig
+    system_user_config: SystemUserConfig
 
 
 @dataclass
@@ -140,19 +147,20 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Args:
             config: The configuration for the openstack runner manager.
         """
-        self._manager_name = config.name
-        self._prefix = config.prefix
+        self._config = config
         self._credentials = config.credentials
-        self._server_config = config.server_config
-        self._runner_config = config.runner_config
-        self._service_config = config.service_config
         self._openstack_cloud = OpenstackCloud(
             credentials=self._credentials,
             prefix=self.name_prefix,
+            system_user=config.system_user_config.user,
+        )
+        self._system_user_config = config.system_user_config
+        self._metrics_storage_manager = metrics_storage.StorageManager(
+            system_user_config=config.system_user_config
         )
 
         # Setting the env var to this process and any child process spawned.
-        proxies = self._service_config.proxy_config
+        proxies = config.service_config.proxy_config
         if proxies and (no_proxy := proxies.no_proxy):
             set_env_var("NO_PROXY", no_proxy)
         if proxies and (http_proxy := proxies.http):
@@ -167,7 +175,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             The prefix of the runner names managed by this class.
         """
-        return self._prefix
+        return self._config.prefix
 
     def create_runner(self, registration_token: str) -> InstanceId:
         """Create a self-hosted runner.
@@ -182,21 +190,23 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             Instance ID of the runner.
         """
-        if self._server_config is None:
+        if (server_config := self._config.server_config) is None:
             raise MissingServerConfigError("Missing server configuration to create runners")
 
         start_timestamp = time.time()
         instance_id = OpenStackRunnerManager._generate_instance_id()
         instance_name = self._openstack_cloud.get_server_name(instance_id=instance_id)
+        self._init_metrics_storage(name=instance_name, install_start_timestamp=start_timestamp)
+
         cloud_init = self._generate_cloud_init(
             instance_name=instance_name, registration_token=registration_token
         )
         try:
             instance = self._openstack_cloud.launch_instance(
                 instance_id=instance_id,
-                image=self._server_config.image,
-                flavor=self._server_config.flavor,
-                network=self._server_config.network,
+                image=server_config.image,
+                flavor=server_config.flavor,
+                network=server_config.network,
                 cloud_init=cloud_init,
             )
         except OpenStackError as err:
@@ -207,15 +217,7 @@ class OpenStackRunnerManager(CloudRunnerManager):
         logger.debug("Waiting for runner process to be running: %s", instance.server_name)
         self._wait_runner_running(instance)
 
-        logger.debug("Issuing runner installed metric: %s", instance.server_name)
-        end_timestamp = time.time()
-        OpenStackRunnerManager._issue_runner_installed_metric(
-            name=instance_name,
-            flavor=self._manager_name,
-            install_start_timestamp=start_timestamp,
-            install_end_timestamp=end_timestamp,
-        )
-        logger.debug("Runner installed metric complete: %s", instance.server_name)
+        logger.info("Runner %s created successfully", instance.server_name)
         return instance_id
 
     def get_runner(self, instance_id: InstanceId) -> CloudRunnerInstance | None:
@@ -232,7 +234,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
         logger.debug(
             "Runner info fetched, checking health %s %s", instance_id, instance.server_name
         )
-        healthy = self._runner_health_check(instance=instance)
+        healthy = health_checks.check_runner(
+            openstack_cloud=self._openstack_cloud, instance=instance
+        )
         logger.debug("Runner health check completed %s %s", instance.server_name, healthy)
         return (
             CloudRunnerInstance(
@@ -264,7 +268,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
                 instance_id=instance.instance_id,
                 health=(
                     HealthState.HEALTHY
-                    if self._runner_health_check(instance)
+                    if health_checks.check_runner(
+                        openstack_cloud=self._openstack_cloud, instance=instance
+                    )
                     else HealthState.UNHEALTHY
                 ),
                 state=CloudRunnerState.from_openstack_server_status(instance.status),
@@ -299,16 +305,16 @@ class OpenStackRunnerManager(CloudRunnerManager):
             return None
 
         logger.debug(
-            "Extract metrics from runner before deletion %s %s", instance_id, instance.server_name
-        )
-        extracted_metrics = runner_metrics.extract(
-            metrics_storage_manager=metrics_storage, runners=set([instance.server_name])
-        )
-        logger.debug(
             "Metrics extracted, deleting instance %s %s", instance_id, instance.server_name
         )
         self._delete_runner(instance, remove_token)
         logger.debug("Instance deleted successfully %s %s", instance_id, instance.server_name)
+        logger.debug("Extract metrics for runner %s %s", instance_id, instance.server_name)
+        extracted_metrics = runner_metrics.extract(
+            metrics_storage_manager=self._metrics_storage_manager,
+            runners={instance.server_name},
+            include=True,
+        )
         return next(extracted_metrics, None)
 
     def flush_runners(
@@ -353,19 +359,65 @@ class OpenStackRunnerManager(CloudRunnerManager):
         """
         logger.debug("Getting runner healths for cleanup.")
         runners = self._get_runners_health()
-        healthy_runner_names = [runner.server_name for runner in runners.healthy]
-        logger.debug("Extracting metrics prior to runner deletion.")
-        metrics = runner_metrics.extract(
-            metrics_storage_manager=metrics_storage, runners=set(healthy_runner_names)
-        )
-        logger.debug("Deleting runners.")
+
+        healthy_runner_names = {runner.server_name for runner in runners.healthy}
+        unhealthy_runner_names = {runner.server_name for runner in runners.unhealthy}
+        logger.debug("Healthy runners: %s", healthy_runner_names)
+        logger.debug("Unhealthy runners: %s", unhealthy_runner_names)
+
+        logger.debug("Deleting unhealthy runners.")
         for runner in runners.unhealthy:
             self._delete_runner(runner, remove_token)
-
         logger.debug("Cleaning up runner resources.")
         self._openstack_cloud.cleanup()
         logger.debug("Cleanup completed successfully.")
-        return metrics
+
+        logger.debug("Extracting metrics.")
+        return self._cleanup_extract_metrics(
+            metrics_storage_manager=self._metrics_storage_manager,
+            healthy_runner_names=healthy_runner_names,
+            unhealthy_runner_names=unhealthy_runner_names,
+        )
+
+    @staticmethod
+    def _cleanup_extract_metrics(
+        metrics_storage_manager: StorageManager,
+        healthy_runner_names: set[str],
+        unhealthy_runner_names: set[str],
+    ) -> Iterator[runner_metrics.RunnerMetrics]:
+        """Extract metrics for unhealthy runners and dangling metrics storage.
+
+        Args:
+            metrics_storage_manager: The metrics storage manager.
+            healthy_runner_names: The names of healthy runners.
+            unhealthy_runner_names: The names of unhealthy runners.
+
+        Returns:
+            Any metrics retrieved from unhealthy runners and dangling storage.
+        """
+        # We want to extract metrics for unhealthy runners(runners to clean up).
+        # But there may be runners under construction
+        # (not marked as healthy and unhealthy because they do not yet exist in OpenStack)
+        # that should not be cleaned up.
+        # On the other hand, there could be storage for runners from the past that
+        # should be cleaned up.
+        all_runner_names = healthy_runner_names | unhealthy_runner_names
+        unmatched_metrics_storage = {
+            ms
+            for ms in metrics_storage_manager.list_all()
+            if ms.runner_name not in all_runner_names
+        }
+        # We assume that storage is dangling if it has not been updated for a long time.
+        dangling_storage_runner_names = {
+            ms.runner_name
+            for ms in unmatched_metrics_storage
+            if ms.path.stat().st_mtime < time.time() - OUTDATED_METRICS_STORAGE_IN_SECONDS
+        }
+        return runner_metrics.extract(
+            metrics_storage_manager=metrics_storage_manager,
+            runners=unhealthy_runner_names | dangling_storage_runner_names,
+            include=True,
+        )
 
     def _delete_runner(self, instance: OpenstackInstance, remove_token: str) -> None:
         """Delete self-hosted runners by openstack instance.
@@ -413,51 +465,11 @@ class OpenStackRunnerManager(CloudRunnerManager):
 
         healthy, unhealthy = [], []
         for runner in runner_list:
-            if self._runner_health_check(runner):
+            if health_checks.check_runner(openstack_cloud=self._openstack_cloud, instance=runner):
                 healthy.append(runner)
             else:
                 unhealthy.append(runner)
         return _RunnerHealth(healthy=tuple(healthy), unhealthy=tuple(unhealthy))
-
-    def _runner_health_check(self, instance: OpenstackInstance) -> bool:
-        """Run health check on a runner.
-
-        Args:
-            instance: The instance hosting the runner to run health check on.
-
-        Returns:
-            True if runner is healthy.
-        """
-        cloud_state = CloudRunnerState.from_openstack_server_status(instance.status)
-        if cloud_state in (
-            CloudRunnerState.DELETED,
-            CloudRunnerState.STOPPED,
-        ):
-            return False
-
-        if cloud_state in (CloudRunnerState.ERROR, CloudRunnerState.UNKNOWN):
-            logger.error(
-                "Instance in unexpected status, failing health check. %s: %s (%s)",
-                cloud_state,
-                instance.server_name,
-                instance.server_id,
-            )
-            return False
-        if cloud_state in (CloudRunnerState.CREATED,):
-            if datetime.now() - instance.created_at >= timedelta(hours=1):
-                logger.error(
-                    "Instance in created status for too long, failing health check. %s: %s (%s)",
-                    cloud_state,
-                    instance.server_name,
-                    instance.server_id,
-                )
-                return False
-            return True
-        try:
-            return self._health_check(instance)
-        except SSHError:
-            logger.exception("SSH Failed on %s, marking as unhealthy.")
-            return False
 
     def _generate_cloud_init(self, instance_name: str, registration_token: str) -> str:
         """Generate cloud init userdata.
@@ -475,12 +487,13 @@ class OpenStackRunnerManager(CloudRunnerManager):
             loader=jinja2.PackageLoader("github_runner_manager", "templates"), autoescape=True
         )
 
+        service_config = self._config.service_config
         env_contents = jinja.get_template("env.j2").render(
             pre_job_script=str(PRE_JOB_SCRIPT),
-            dockerhub_mirror=self._service_config.dockerhub_mirror or "",
+            dockerhub_mirror=service_config.dockerhub_mirror or "",
             ssh_debug_info=(
-                secrets.choice(self._service_config.ssh_debug_connections)
-                if self._service_config.ssh_debug_connections
+                secrets.choice(service_config.ssh_debug_connections)
+                if service_config.ssh_debug_connections
                 else None
             ),
         )
@@ -503,24 +516,25 @@ class OpenStackRunnerManager(CloudRunnerManager):
         pre_job_contents = jinja.get_template("pre-job.j2").render(pre_job_contents_dict)
 
         runner_group = None
-        if isinstance(self._runner_config.github_path, GitHubOrg):
-            runner_group = self._runner_config.github_path.group
+        runner_config = self._config.runner_config
+        if isinstance(runner_config.github_path, GitHubOrg):
+            runner_group = runner_config.github_path.group
         aproxy_address = (
-            self._service_config.proxy_config.aproxy_address
-            if self._service_config.proxy_config is not None
+            service_config.proxy_config.aproxy_address
+            if service_config.proxy_config is not None
             else None
         )
         return jinja.get_template("openstack-userdata.sh.j2").render(
-            github_url=f"https://github.com/{self._runner_config.github_path.path()}",
+            github_url=f"https://github.com/{runner_config.github_path.path()}",
             runner_group=runner_group,
             token=registration_token,
-            instance_labels=",".join(self._runner_config.labels),
+            instance_labels=",".join(runner_config.labels),
             instance_name=instance_name,
             env_contents=env_contents,
             pre_job_contents=pre_job_contents,
             metrics_exchange_path=str(METRICS_EXCHANGE_PATH),
             aproxy_address=aproxy_address,
-            dockerhub_mirror=self._service_config.dockerhub_mirror,
+            dockerhub_mirror=service_config.dockerhub_mirror,
         )
 
     def _get_repo_policy_compliance_client(self) -> RepoPolicyComplianceClient | None:
@@ -529,10 +543,10 @@ class OpenStackRunnerManager(CloudRunnerManager):
         Returns:
             The repo policy compliance client.
         """
-        if self._service_config.repo_policy_compliance is not None:
+        if (service_config := self._config.service_config).repo_policy_compliance is not None:
             return RepoPolicyComplianceClient(
-                self._service_config.repo_policy_compliance.url,
-                self._service_config.repo_policy_compliance.token,
+                service_config.repo_policy_compliance.url,
+                service_config.repo_policy_compliance.token,
             )
         return None
 
@@ -597,65 +611,6 @@ class OpenStackRunnerManager(CloudRunnerManager):
             result.stderr,
         )
 
-    @retry(tries=3, delay=5, backoff=2, local_logger=logger)
-    def _health_check(self, instance: OpenstackInstance) -> bool:
-        """Check whether runner is healthy.
-
-        Args:
-            instance: The OpenStack instance to conduit the health check.
-
-        Raises:
-            SSHError: Unable to get a SSH connection to the instance.
-
-        Returns:
-            Whether the runner is healthy.
-        """
-        try:
-            ssh_conn = self._openstack_cloud.get_ssh_connection(instance)
-        except KeyfileError:
-            logger.exception(
-                "Health check failed due to unable to find keyfile for %s", instance.server_name
-            )
-            return False
-        except SSHError:
-            logger.exception(
-                "SSH connection failure with %s during health check", instance.server_name
-            )
-            raise
-        return OpenStackRunnerManager._run_health_check(ssh_conn, instance.server_name)
-
-    @staticmethod
-    def _run_health_check(
-        ssh_conn: SSHConnection, name: str, accept_finished_job: bool = False
-    ) -> bool:
-        """Run a health check for runner process.
-
-        Args:
-            ssh_conn: The SSH connection to the runner.
-            name: The name of the runner.
-            accept_finished_job: Whether a job that has finished should be marked healthy.
-
-        Returns:
-            Whether the health succeed.
-        """
-        result: invoke.runners.Result = ssh_conn.run("cloud-init status", warn=True, timeout=30)
-        if not result.ok:
-            logger.warning("cloud-init status command failed on %s: %s.", name, result.stderr)
-            return False
-        if CloudInitStatus.DONE in result.stdout:
-            return accept_finished_job
-        result = ssh_conn.run("ps aux", warn=True, timeout=30)
-        if not result.ok:
-            logger.warning("SSH run of `ps aux` failed on %s: %s", name, result.stderr)
-            return False
-        if (
-            RUNNER_WORKER_PROCESS not in result.stdout
-            and RUNNER_LISTENER_PROCESS not in result.stdout
-        ):
-            logger.warning("Runner process not found on %s", name)
-            return False
-        return True
-
     @retry(tries=10, delay=60, local_logger=logger)
     def _wait_runner_startup(self, instance: OpenstackInstance) -> None:
         """Wait until runner is startup.
@@ -714,8 +669,8 @@ class OpenStackRunnerManager(CloudRunnerManager):
                 f"Failed to SSH connect to {instance.server_name} openstack runner"
             ) from err
 
-        if not self._run_health_check(
-            ssh_conn=ssh_conn, name=instance.server_name, accept_finished_job=True
+        if not health_checks.check_active_runner(
+            ssh_conn=ssh_conn, instance=instance, accept_finished_job=True
         ):
             logger.info("Runner process not found on %s", instance.server_name)
             raise RunnerStartError(
@@ -733,34 +688,19 @@ class OpenStackRunnerManager(CloudRunnerManager):
         """
         return secrets.token_hex(12)
 
-    @staticmethod
-    def _issue_runner_installed_metric(
-        name: str,
-        flavor: str,
-        install_start_timestamp: float,
-        install_end_timestamp: float,
-    ) -> None:
-        """Issue metric for runner installed event.
+    def _init_metrics_storage(self, name: str, install_start_timestamp: float) -> None:
+        """Create metrics storage for runner.
+
+        An error will be logged if the storage cannot be created.
+        It is assumed that the code will not be able to issue metrics for this runner
+        and not fail for other operations.
 
         Args:
             name: The name of the runner.
-            flavor: The flavor of the runner.
             install_start_timestamp: The timestamp of installation start.
-            install_end_timestamp: The timestamp of installation end.
         """
         try:
-            metric_events.issue_event(
-                event=metric_events.RunnerInstalled(
-                    timestamp=install_start_timestamp,
-                    flavor=flavor,
-                    duration=install_end_timestamp - install_start_timestamp,
-                )
-            )
-        except IssueMetricEventError:
-            logger.exception("Failed to issue RunnerInstalled metric")
-
-        try:
-            storage = metrics_storage.create(name)
+            storage = self._metrics_storage_manager.create(runner_name=name)
         except CreateMetricsStorageError:
             logger.exception(
                 "Failed to create metrics storage for runner %s, "
@@ -769,26 +709,26 @@ class OpenStackRunnerManager(CloudRunnerManager):
             )
         else:
             try:
-                (storage.path / runner_metrics.RUNNER_INSTALLED_TS_FILE_NAME).write_text(
-                    str(install_end_timestamp), encoding="utf-8"
+                (storage.path / runner_metrics.RUNNER_INSTALLATION_START_TS_FILE_NAME).write_text(
+                    str(install_start_timestamp), encoding="utf-8"
                 )
             except FileNotFoundError:
                 logger.exception(
-                    "Failed to write runner-installed.timestamp into metrics storage "
-                    "for runner %s, will not be able to issue all metrics.",
+                    f"Failed to write {runner_metrics.RUNNER_INSTALLATION_START_TS_FILE_NAME}"
+                    f" into metrics storage for runner %s, will not be able to issue all metrics.",
                     name,
                 )
 
-    @staticmethod
-    def _pull_runner_metrics(name: str, ssh_conn: SSHConnection) -> None:
+    def _pull_runner_metrics(self, name: str, ssh_conn: SSHConnection) -> None:
         """Pull metrics from runner.
 
         Args:
             name: The name of the runner.
             ssh_conn: The SSH connection to the runner.
         """
+        logger.debug("Pulling metrics for %s", name)
         try:
-            storage = metrics_storage.get(name)
+            storage = self._metrics_storage_manager.get(runner_name=name)
         except GetMetricsStorageError:
             logger.exception(
                 "Failed to get shared metrics storage for runner %s, "
@@ -800,14 +740,20 @@ class OpenStackRunnerManager(CloudRunnerManager):
         try:
             OpenStackRunnerManager._ssh_pull_file(
                 ssh_conn=ssh_conn,
+                remote_path=str(METRICS_EXCHANGE_PATH / "runner-installed.timestamp"),
+                local_path=str(storage.path / runner_metrics.RUNNER_INSTALLED_TS_FILE_NAME),
+                max_size=MAX_METRICS_FILE_SIZE,
+            )
+            OpenStackRunnerManager._ssh_pull_file(
+                ssh_conn=ssh_conn,
                 remote_path=str(METRICS_EXCHANGE_PATH / "pre-job-metrics.json"),
-                local_path=str(storage.path / "pre-job-metrics.json"),
+                local_path=str(storage.path / runner_metrics.PRE_JOB_METRICS_FILE_NAME),
                 max_size=MAX_METRICS_FILE_SIZE,
             )
             OpenStackRunnerManager._ssh_pull_file(
                 ssh_conn=ssh_conn,
                 remote_path=str(METRICS_EXCHANGE_PATH / "post-job-metrics.json"),
-                local_path=str(storage.path / "post-job-metrics.json"),
+                local_path=str(storage.path / runner_metrics.POST_JOB_METRICS_FILE_NAME),
                 max_size=MAX_METRICS_FILE_SIZE,
             )
         except _PullFileError as exc:
