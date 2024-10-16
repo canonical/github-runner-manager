@@ -100,6 +100,8 @@ write_post_metrics(){
     fi
 }
 
+date +%s >  {{ metrics_exchange_path}}/runner-installed.timestamp
+
 # Run runner
 # We want to capture the exit code of the run.sh script and write the post-job metrics.
 (set +e; su - ubuntu -c "cd ~/actions-runner && /home/ubuntu/actions-runner/run.sh"; write_post_metrics $?)

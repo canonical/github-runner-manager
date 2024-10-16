@@ -155,7 +155,7 @@ Run cleanup of the runners and other resources.
 ### <kbd>method</kbd> `create_runners`
 
 ```python
-create_runners(num: int) → tuple[str]
+create_runners(num: int) → tuple[str, ]
 ```
 
 Create runners. 
