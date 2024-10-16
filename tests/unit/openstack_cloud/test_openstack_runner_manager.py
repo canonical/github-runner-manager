@@ -97,16 +97,16 @@ def test__cleanup_extract_metrics(
     runner_metrics_mock = MagicMock(spec=runner)
     monkeypatch.setattr(openstack_runner_manager, "runner_metrics", runner_metrics_mock)
     now = datetime.now()
-    all_runner_name_metrics_storage = {
-        _create_metrics_storage_mock(runner_name, now)
+    all_runner_name_metrics_storage = [
+        _create_metrics_storage(runner_name, now)
         for runner_name in (healthy_runner_names | unhealthy_runner_names)
-    }
-    dangling_runner_metrics_storage = {
-        _create_metrics_storage_mock(runner_name, mtime)
+    ]
+    dangling_runner_metrics_storage = [
+        _create_metrics_storage(runner_name, mtime)
         for runner_name, mtime in undecided_runner_storage
-    }
+    ]
     metric_storage_manager.list_all = (
-        all_runner_name_metrics_storage | dangling_runner_metrics_storage
+        all_runner_name_metrics_storage + dangling_runner_metrics_storage
     ).__iter__
 
     OpenStackRunnerManager._cleanup_extract_metrics(
@@ -119,9 +119,9 @@ def test__cleanup_extract_metrics(
     assert runner_metrics_mock.extract.call_args[1]["runners"] == expected_storage_to_be_extracted
 
 
-def _create_metrics_storage_mock(runner_name: str, mtime: datetime) -> MagicMock:
+def _create_metrics_storage(runner_name: str, mtime: datetime) -> MetricsStorage:
     """
-    Create a metric storage mock object.
+    Create a metric storage object with a mocked path.st_mtime.
 
     Args:
         runner_name: The name of the runner.
@@ -130,9 +130,7 @@ def _create_metrics_storage_mock(runner_name: str, mtime: datetime) -> MagicMock
     Returns:
         A metric storage mock object.
     """
-    metrics_storage = MagicMock(spec=MetricsStorage)
-    metrics_storage.runner_name = runner_name
-    metrics_storage.path = MagicMock(spec=Path)
+    metrics_storage = MetricsStorage(runner_name=runner_name, path=MagicMock(spec=Path))
     stat = MagicMock()
     stat_mock = MagicMock(return_value=stat)
     stat.st_mtime = mtime.timestamp()
