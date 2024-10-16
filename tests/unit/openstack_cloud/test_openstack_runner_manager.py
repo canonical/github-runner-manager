@@ -121,7 +121,7 @@ def test__cleanup_extract_metrics(
 
 def _create_metrics_storage(runner_name: str, mtime: datetime) -> MetricsStorage:
     """
-    Create a metric storage object with a mocked path.st_mtime.
+    Create a metric storage object with a mocked mtime for the storage path.
 
     Args:
         runner_name: The name of the runner.
