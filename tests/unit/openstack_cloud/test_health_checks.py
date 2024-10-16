@@ -3,9 +3,14 @@
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
+import invoke
 import pytest
+from fabric import Connection as SSHConnection
 
 from github_runner_manager.openstack_cloud import health_checks, openstack_cloud
+from github_runner_manager.openstack_cloud.health_checks import (
+    INSTANCE_IN_BUILD_MODE_TIMEOUT_IN_HOURS,
+)
 from github_runner_manager.openstack_cloud.openstack_cloud import OpenstackCloud
 from tests.unit.factories import openstack_factory
 
@@ -89,7 +94,7 @@ from tests.unit.factories import openstack_factory
         ),
     ],
 )
-def test_check_active_runner(
+def test_check_runner(
     instance: openstack_cloud.OpenstackInstance,
     expected_result: bool,
     monkeypatch: pytest.MonkeyPatch,
@@ -106,3 +111,50 @@ def test_check_active_runner(
         )
         == expected_result
     )
+
+
+@pytest.mark.parametrize(
+    "created_at, installed_timestamp_available, expected_result",
+    [
+        pytest.param(
+            datetime.now(),
+            True,
+            None,
+            id="runner is already installed",
+        ),
+        pytest.param(
+            datetime.now(),
+            False,
+            True,
+            id="runner still in installation",
+        ),
+        pytest.param(
+            datetime.now() - timedelta(hours=INSTANCE_IN_BUILD_MODE_TIMEOUT_IN_HOURS + 1),
+            False,
+            False,
+            id="runner too long in installation",
+        ),
+    ],
+)
+def test___run_health_check_runner_installed(
+    created_at: datetime,
+    installed_timestamp_available: bool,
+    expected_result: bool | None,
+):
+    """
+    arrange: Mock OpenStack instance creation time and availability of installed timestamp.
+    act: Call _run_health_check_runner_installed.
+    assert: Expected health check result is returned.
+    """
+    instance = openstack_cloud.OpenstackInstance(
+        server=openstack_factory.ServerFactory(
+            status="ACTIVE", created_at=created_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+        ),
+        prefix="test",
+    )
+    ssh_conn = MagicMock(spec=SSHConnection)
+    result_mock = MagicMock(spec=invoke.runners.Result)
+    result_mock.ok = installed_timestamp_available
+    ssh_conn.run.return_value = result_mock
+
+    assert health_checks._run_health_check_runner_installed(ssh_conn, instance) == expected_result
