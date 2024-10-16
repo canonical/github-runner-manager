@@ -47,7 +47,6 @@ from github_runner_manager.openstack_cloud.constants import (
     RUNNER_LISTENER_PROCESS,
     RUNNER_WORKER_PROCESS,
 )
-from github_runner_manager.openstack_cloud.openstack_cloud import OpenstackCloud, OpenstackInstance
 from github_runner_manager.openstack_cloud.openstack_cloud import (
     OpenstackCloud,
     OpenStackCredentials,

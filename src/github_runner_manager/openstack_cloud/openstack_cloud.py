@@ -154,7 +154,7 @@ class OpenstackCloud:
     get_server_name.
     """
 
-    def __init__(self, credentials: OpenStackCredentials,  prefix: str, system_user: str):
+    def __init__(self, credentials: OpenStackCredentials, prefix: str, system_user: str):
         """Create the object.
 
         Args:
