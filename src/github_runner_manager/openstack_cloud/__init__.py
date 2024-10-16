@@ -4,15 +4,11 @@
 """Module for managing Openstack cloud."""
 
 import logging
-from pathlib import Path
 from typing import TypedDict, cast
 
 from github_runner_manager.errors import OpenStackInvalidConfigError
 
 logger = logging.getLogger(__name__)
-
-
-CLOUDS_YAML_PATH = Path(Path.home() / ".config/openstack/clouds.yaml")
 
 
 class CloudConfig(TypedDict):
