@@ -342,6 +342,9 @@ class RunnerManager:
 
         for extracted_metrics in metrics:
             job_metrics = None
+
+            # We need a guard because pre-job metrics may not be available for idle runners
+            # that are deleted.
             if extracted_metrics.pre_job:
                 try:
                     job_metrics = github_metrics.job(
