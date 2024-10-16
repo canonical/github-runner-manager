@@ -3,7 +3,9 @@
 import os
 import secrets
 import subprocess
+from grp import getgrgid
 from pathlib import Path
+from pwd import getpwuid
 from subprocess import CompletedProcess
 from unittest.mock import MagicMock
 
@@ -17,9 +19,17 @@ from github_runner_manager.reactive.process_manager import (
     reconcile,
 )
 from github_runner_manager.reactive.types_ import QueueConfig, RunnerConfig
+from github_runner_manager.types_ import SystemUserConfig
 from github_runner_manager.utilities import secure_run_subprocess
 
 EXAMPLE_MQ_URI = "http://example.com"
+
+# We assume the process running the tests is running as a user
+# that can write to the temporary directory.
+TEST_SYSTEM_USER_CONFIG = SystemUserConfig(
+    user=(passwd := getpwuid(os.getuid())).pw_name,
+    group=getgrgid(passwd.pw_gid).gr_name,
+)
 
 
 @pytest.fixture(name="log_dir", autouse=True)
@@ -71,7 +81,7 @@ def runner_config_fixture() -> RunnerConfig:
 
     # we use construct to avoid pydantic validation as IN_MEMORY_URI is not a valid URL
     queue_config = QueueConfig.construct(mongodb_uri=EXAMPLE_MQ_URI, queue_name=queue_name)
-    return RunnerConfig.construct(queue=queue_config)
+    return RunnerConfig.construct(queue=queue_config, system_user=TEST_SYSTEM_USER_CONFIG)
 
 
 def test_reconcile_spawns_runners(
