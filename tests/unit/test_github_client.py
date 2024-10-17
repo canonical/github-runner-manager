@@ -11,7 +11,7 @@ from urllib.error import HTTPError
 
 import pytest
 
-from github_runner_manager.errors import JobNotFoundError
+from github_runner_manager.errors import GithubApiError, JobNotFoundError, TokenError
 from github_runner_manager.github_client import GithubClient
 from github_runner_manager.types_.github import GitHubRepo, JobConclusion, JobInfo, JobStatus
 
@@ -256,3 +256,33 @@ def test_github_api_http_error(github_client: GithubClient, job_stats_raw: JobSt
             workflow_run_id=secrets.token_hex(16),
             runner_name=job_stats_raw.runner_name,
         )
+
+
+def test_catch_http_errors(github_client: GithubClient):
+    """
+    arrange: A mocked Github Client that raises a 500 HTTPError.
+    act: Call  an API endpoint.
+    assert: A GithubApiError is raised.
+    """
+    github_repo = GitHubRepo(owner=secrets.token_hex(16), repo=secrets.token_hex(16))
+    github_client._client.actions.create_remove_token_for_repo.side_effect = HTTPError(
+        "http://test.com", 500, "", http.client.HTTPMessage(), None
+    )
+
+    with pytest.raises(GithubApiError):
+        github_client.get_runner_remove_token(github_repo)
+
+
+def test_catch_http_errors_token_issues(github_client: GithubClient):
+    """
+    arrange: A mocked Github Client that raises a 401 HTTPError.
+    act: Call an API endpoint.
+    assert: A TokenError is raised.
+    """
+    github_repo = GitHubRepo(owner=secrets.token_hex(16), repo=secrets.token_hex(16))
+    github_client._client.actions.create_remove_token_for_repo.side_effect = HTTPError(
+        "http://test.com", 401, "", http.client.HTTPMessage(), None
+    )
+
+    with pytest.raises(TokenError):
+        github_client.get_runner_remove_token(github_repo)

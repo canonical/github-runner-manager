@@ -47,7 +47,11 @@ from github_runner_manager.openstack_cloud.constants import (
     RUNNER_LISTENER_PROCESS,
     RUNNER_WORKER_PROCESS,
 )
-from github_runner_manager.openstack_cloud.openstack_cloud import OpenstackCloud, OpenstackInstance
+from github_runner_manager.openstack_cloud.openstack_cloud import (
+    OpenstackCloud,
+    OpenStackCredentials,
+    OpenstackInstance,
+)
 from github_runner_manager.repo_policy_compliance_client import RepoPolicyComplianceClient
 from github_runner_manager.types_ import SystemUserConfig
 from github_runner_manager.types_.github import GitHubOrg
@@ -76,19 +80,6 @@ class _PullFileError(Exception):
 
 
 @dataclass
-class OpenStackCloudConfig:
-    """Configuration for OpenStack cloud authorisation information.
-
-    Attributes:
-        clouds_config: The clouds.yaml.
-        cloud: The cloud name to connect to.
-    """
-
-    clouds_config: dict[str, dict]
-    cloud: str
-
-
-@dataclass
 class OpenStackServerConfig:
     """Configuration for OpenStack server.
 
@@ -110,7 +101,7 @@ class OpenStackRunnerManagerConfig:
     Attributes:
         name: The name of the manager.
         prefix: The prefix of the runner names.
-        cloud_config: The configuration for OpenStack cloud.
+        credentials: The OpenStack authorization information.
         server_config: The configuration for OpenStack server.
         runner_config: The configuration for the GitHub runner.
         service_config: The configuration for supporting services.
@@ -119,7 +110,7 @@ class OpenStackRunnerManagerConfig:
 
     name: str
     prefix: str
-    cloud_config: OpenStackCloudConfig
+    credentials: OpenStackCredentials
     server_config: OpenStackServerConfig | None
     runner_config: GitHubRunnerConfig
     service_config: SupportServiceConfig
@@ -156,9 +147,9 @@ class OpenStackRunnerManager(CloudRunnerManager):
             config: The configuration for the openstack runner manager.
         """
         self._config = config
+        self._credentials = config.credentials
         self._openstack_cloud = OpenstackCloud(
-            clouds_config=config.cloud_config.clouds_config,
-            cloud=config.cloud_config.cloud,
+            credentials=self._credentials,
             prefix=self.name_prefix,
             system_user=config.system_user_config.user,
         )
@@ -410,11 +401,11 @@ class OpenStackRunnerManager(CloudRunnerManager):
         # On the other hand, there could be storage for runners from the past that
         # should be cleaned up.
         all_runner_names = healthy_runner_names | unhealthy_runner_names
-        unmatched_metrics_storage = {
+        unmatched_metrics_storage = (
             ms
             for ms in metrics_storage_manager.list_all()
             if ms.runner_name not in all_runner_names
-        }
+        )
         # We assume that storage is dangling if it has not been updated for a long time.
         dangling_storage_runner_names = {
             ms.runner_name
