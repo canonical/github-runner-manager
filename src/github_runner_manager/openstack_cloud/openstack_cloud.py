@@ -448,8 +448,8 @@ class OpenstackCloud:
         latest_server = reduce(
             lambda a, b: (
                 a
-                if datetime.strptime(a.created_at, "a %b %d %H:%M:%S %Y")
-                < datetime.strptime(b.create_at, "a %b %d %H:%M:%S %Y")
+                if datetime.fromisoformat(a.created_at)
+                < datetime.fromisoformat(b.create_at)
                 else b
             ),
             servers,
