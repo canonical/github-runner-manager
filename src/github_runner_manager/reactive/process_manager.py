@@ -113,11 +113,10 @@ def _setup_logging_for_processes(system_user_config: SystemUserConfig) -> None:
     Args:
         system_user_config: The configuration to decide which user to use to create the log dir.
     """
-    if not REACTIVE_RUNNER_LOG_DIR.exists():
-        REACTIVE_RUNNER_LOG_DIR.mkdir()
-        shutil.chown(
-            REACTIVE_RUNNER_LOG_DIR, user=system_user_config.user, group=system_user_config.group
-        )
+    REACTIVE_RUNNER_LOG_DIR.mkdir(exist_ok=True)
+    shutil.chown(
+        REACTIVE_RUNNER_LOG_DIR, user=system_user_config.user, group=system_user_config.group
+    )
 
 
 def _spawn_runner(runner_config: RunnerConfig) -> None:
