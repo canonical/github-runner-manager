@@ -443,13 +443,11 @@ class OpenstackCloud:
         if not servers:
             return None
 
-        # 2024/08/14: The `format` arg for `strptime` is the default format.
-        # This is only provided to get around a bug of the function with type checking.
         latest_server = reduce(
             lambda a, b: (
                 a
-                if datetime.strptime(a.created_at, "a %b %d %H:%M:%S %Y")
-                < datetime.strptime(b.create_at, "a %b %d %H:%M:%S %Y")
+                if datetime.fromisoformat(a.created_at.replace("Z", "+00:00"))
+                < datetime.fromisoformat(b.created_at.replace("Z", "+00:00"))
                 else b
             ),
             servers,
