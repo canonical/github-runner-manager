@@ -140,6 +140,8 @@ class RunnerScaler:
         metric_stats = {}
         start_timestamp = time.time()
 
+        expected_runner_quantity = quantity if self._reactive_config is None else None
+
         try:
             if self._reactive_config is not None:
                 logger.info(
@@ -161,7 +163,11 @@ class RunnerScaler:
             self._log_runners(runner_list)
             end_timestamp = time.time()
             self._issue_reconciliation_metric(
-                start_timestamp, end_timestamp, metric_stats, runner_list
+                start_timestamp=start_timestamp,
+                end_timestamp=end_timestamp,
+                metric_stats=metric_stats,
+                runner_list=runner_list,
+                expected_runner_quantity=expected_runner_quantity,
             )
 
         return reconcile_diff
@@ -244,6 +250,7 @@ class RunnerScaler:
         end_timestamp: float,
         metric_stats: IssuedMetricEventsStats,
         runner_list: tuple[RunnerInstance],
+        expected_runner_quantity: int | None = None,
     ) -> None:
         """Issue the reconciliation metric.
 
@@ -252,6 +259,7 @@ class RunnerScaler:
             end_timestamp: The end timestamp of the reconciliation.
             metric_stats: The metric stats.
             runner_list: The list of runners.
+            expected_runner_quantity: The expected number of runners.
         """
         idle_runners = {
             runner.name for runner in runner_list if runner.github_state == GitHubRunnerState.IDLE
@@ -280,6 +288,7 @@ class RunnerScaler:
                     - metric_stats.get(metric_events.RunnerStop, 0),
                     idle_runners=len(available_runners),
                     active_runners=len(active_runners),
+                    expected_runners=expected_runner_quantity,
                     duration=end_timestamp - start_timestamp,
                 )
             )
