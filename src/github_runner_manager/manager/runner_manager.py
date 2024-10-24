@@ -83,10 +83,12 @@ class RunnerManagerConfig:
     """Configuration for the runner manager.
 
     Attributes:
+        name: A name to identify this manager.
         token: GitHub personal access token to query GitHub API.
         path: Path to GitHub repository or organization to registry the runners.
     """
 
+    name: str
     token: str
     path: GitHubPath
 
@@ -101,18 +103,16 @@ class RunnerManager:
 
     def __init__(
         self,
-        manager_name: str,
         cloud_runner_manager: CloudRunnerManager,
         config: RunnerManagerConfig,
     ):
         """Construct the object.
 
         Args:
-            manager_name: A name to identify this manager.
             cloud_runner_manager: For managing the cloud instance of the runner.
             config: Configuration of this class.
         """
-        self.manager_name = manager_name
+        self.manager_name = config.name
         self._config = config
         self._cloud = cloud_runner_manager
         self.name_prefix = self._cloud.name_prefix
@@ -120,7 +120,7 @@ class RunnerManager:
             prefix=self.name_prefix, token=self._config.token, path=self._config.path
         )
 
-    def create_runners(self, num: int) -> tuple[InstanceId]:
+    def create_runners(self, num: int) -> tuple[InstanceId, ...]:
         """Create runners.
 
         Args:
@@ -254,7 +254,11 @@ class RunnerManager:
     def _spawn_runners(
         create_runner_args: Sequence["RunnerManager._CreateRunnerArgs"],
     ) -> tuple[InstanceId, ...]:
-        """Parallel spawn of runners.
+        """Spawn runners in parallel using multiprocessing.
+
+        Multiprocessing is only used if there are more than one runner to spawn. Otherwise,
+        the runner is created in the current process, which is required for reactive,
+        where we don't assume to spawn another process inside the reactive process.
 
         The length of the create_runner_args is number _create_runner invocation, and therefore the
         number of runner spawned.
@@ -263,10 +267,31 @@ class RunnerManager:
             create_runner_args: List of arg for invoking _create_runner method.
 
         Returns:
-            A list of instance ID of runner spawned.
+            A tuple of instance ID's of runners spawned.
         """
         num = len(create_runner_args)
 
+        if num == 1:
+            return (RunnerManager._create_runner(create_runner_args[0]),)
+
+        return RunnerManager._spawn_runners_using_multiprocessing(create_runner_args, num)
+
+    @staticmethod
+    def _spawn_runners_using_multiprocessing(
+        create_runner_args: Sequence["RunnerManager._CreateRunnerArgs"], num: int
+    ) -> tuple[InstanceId, ...]:
+        """Parallel spawn of runners.
+
+        The length of the create_runner_args is number _create_runner invocation, and therefore the
+        number of runner spawned.
+
+        Args:
+            create_runner_args: List of arg for invoking _create_runner method.
+            num: The number of runners to spawn.
+
+        Returns:
+            A tuple of instance ID's of runners spawned.
+        """
         instance_id_list = []
         with Pool(processes=min(num, 10)) as pool:
             jobs = pool.imap_unordered(
@@ -316,17 +341,26 @@ class RunnerManager:
         total_stats: IssuedMetricEventsStats = {}
 
         for extracted_metrics in metrics:
-            try:
-                job_metrics = github_metrics.job(
-                    github_client=self._github.github,
-                    pre_job_metrics=extracted_metrics.pre_job,
-                    runner_name=extracted_metrics.runner_name,
+            job_metrics = None
+
+            # We need a guard because pre-job metrics may not be available for idle runners
+            # that are deleted.
+            if extracted_metrics.pre_job:
+                try:
+                    job_metrics = github_metrics.job(
+                        github_client=self._github.github,
+                        pre_job_metrics=extracted_metrics.pre_job,
+                        runner_name=extracted_metrics.runner_name,
+                    )
+                except GithubMetricsError:
+                    logger.exception(
+                        "Failed to calculate job metrics for %s", extracted_metrics.runner_name
+                    )
+            else:
+                logger.debug(
+                    "No pre-job metrics found for %s, will not calculate job metrics.",
+                    extracted_metrics.runner_name,
                 )
-            except GithubMetricsError:
-                logger.exception(
-                    "Failed to calculate job metrics for %s", extracted_metrics.runner_name
-                )
-                job_metrics = None
 
             issued_events = runner_metrics.issue_events(
                 runner_metrics=extracted_metrics,

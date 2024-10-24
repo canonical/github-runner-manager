@@ -1,143 +1,117 @@
 #  Copyright 2024 Canonical Ltd.
 #  See LICENSE file for licensing details.
 
-"""Module for managing reactive runners."""
+"""Module for reconciling amount of runner and reactive runner processes."""
 import logging
-import os
-import shutil
-import signal
+from dataclasses import dataclass
 
-# All commands run by subprocess are secure.
-import subprocess  # nosec
-from pathlib import Path
-
-from github_runner_manager.utilities import secure_run_subprocess
+from github_runner_manager.manager.github_runner_manager import GitHubRunnerState
+from github_runner_manager.manager.runner_manager import (
+    FlushMode,
+    IssuedMetricEventsStats,
+    RunnerManager,
+)
+from github_runner_manager.reactive import process_manager
+from github_runner_manager.reactive.consumer import get_queue_size
+from github_runner_manager.reactive.types_ import RunnerConfig
 
 logger = logging.getLogger(__name__)
 
-MQ_URI_ENV_VAR = "MQ_URI"
-QUEUE_NAME_ENV_VAR = "QUEUE_NAME"
-REACTIVE_RUNNER_LOG_DIR = Path("/var/log/reactive_runner")
 
-PYTHON_BIN = "/usr/bin/python3"
-REACTIVE_RUNNER_SCRIPT_MODULE = "github_runner_manager.reactive.runner"
-REACTIVE_RUNNER_CMD_LINE_PREFIX = f"{PYTHON_BIN} -m {REACTIVE_RUNNER_SCRIPT_MODULE}"
-PID_CMD_COLUMN_WIDTH = len(REACTIVE_RUNNER_CMD_LINE_PREFIX)
-PIDS_COMMAND_LINE = [
-    "ps",
-    "axo",
-    f"cmd:{PID_CMD_COLUMN_WIDTH},pid",
-    "--no-headers",
-    "--sort=-start_time",
-]
-UBUNTU_USER = "ubuntu"
+@dataclass
+class ReconcileResult:
+    """The result of the reconciliation.
+
+    Attributes:
+        processes_diff: The number of reactive processes created/removed.
+        metric_stats: The stats of the issued metric events
+    """
+
+    processes_diff: int
+    metric_stats: IssuedMetricEventsStats
 
 
-class ReactiveRunnerError(Exception):
-    """Raised when a reactive runner error occurs."""
+def reconcile(
+    expected_quantity: int, runner_manager: RunnerManager, runner_config: RunnerConfig
+) -> ReconcileResult:
+    """Reconcile runners reactively.
+
+    The reconciliation attempts to make the following equation true:
+        quantity_of_current_runners + amount_of_reactive_processes_consuming_jobs
+            == expected_quantity
+
+    A few examples:
+
+    1. If there are 5 runners and 5 reactive processes and the quantity is 10,
+        no action is taken.
+    2. If there are 5 runners and 5 reactive processes and the quantity is 15,
+        5 reactive processes are created.
+    3. If there are 5 runners and 5 reactive processes and quantity is 7,
+        3 reactive processes are killed.
+    4. If there are 5 runners and 5 reactive processes and quantity is 5,
+        all reactive processes are killed.
+    5. If there are 5 runners and 5 reactive processes and quantity is 4,
+        1 runner is killed and all reactive processes are killed.
 
 
-def reconcile(quantity: int, mq_uri: str, queue_name: str) -> int:
-    """Spawn a runner reactively.
+    So if the quantity is equal to the sum of the current runners and reactive processes,
+    no action is taken,
+
+    If the quantity is greater than the sum of the current
+    runners and reactive processes, additional reactive processes are created.
+
+    If the quantity is greater than or equal to the quantity of the current runners,
+    but less than the sum of the current runners and reactive processes,
+    additional reactive processes will be killed.
+
+    If the quantity is less than the sum of the current runners,
+    additional runners are killed and all reactive processes are killed.
+
+    In addition to this behaviour, reconciliation also checks the queue at the start and
+    removes all idle runners if the queue is empty, to ensure that
+    no idle runners are left behind if there are no new jobs.
 
     Args:
-        quantity: The number of runners to spawn.
-        mq_uri: The message queue URI.
-        queue_name: The name of the queue.
-
-    Raises a ReactiveRunnerError if the runner fails to spawn.
+        expected_quantity: Number of intended amount of runners + reactive processes.
+        runner_manager: The runner manager to interact with current running runners.
+        runner_config: The reactive runner config.
 
     Returns:
-        The number of reactive runner processes spawned.
+        The number of reactive processes created. If negative, its absolute value is equal
+        to the number of processes killed.
     """
-    pids = _get_pids()
-    current_quantity = len(pids)
-    logger.info("Current quantity of reactive runner processes: %s", current_quantity)
-    delta = quantity - current_quantity
-    if delta > 0:
-        logger.info("Will spawn %d new reactive runner process(es)", delta)
-        _setup_logging_for_processes()
-        for _ in range(delta):
-            _spawn_runner(mq_uri=mq_uri, queue_name=queue_name)
-    elif delta < 0:
-        logger.info("Will kill %d process(es).", -delta)
-        for pid in pids[:-delta]:
-            logger.info("Killing reactive runner process with pid %s", pid)
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except ProcessLookupError:
-                # There can be a race condition that the process has already terminated.
-                # We just ignore and log the fact.
-                logger.info(
-                    "Failed to kill process with pid %s. Process might have terminated it self.",
-                    pid,
-                )
+    cleanup_metric_stats = runner_manager.cleanup()
+    flush_metric_stats = {}
+    delete_metric_stats = {}
+
+    if get_queue_size(runner_config.queue) == 0:
+        flush_metric_stats = runner_manager.flush_runners(FlushMode.FLUSH_IDLE)
+
+    # Only count runners which are online on GitHub to prevent machines to be just in
+    # construction to be counted and then killed immediately by the process manager.
+    runners = runner_manager.get_runners(
+        github_states=[GitHubRunnerState.IDLE, GitHubRunnerState.BUSY]
+    )
+    runner_diff = expected_quantity - len(runners)
+
+    if runner_diff >= 0:
+        process_quantity = runner_diff
     else:
-        logger.info("No changes to number of reactive runner processes needed.")
+        delete_metric_stats = runner_manager.delete_runners(-runner_diff)
+        process_quantity = 0
 
-    return delta
-
-
-def _get_pids() -> list[int]:
-    """Get the PIDs of the reactive runners processes.
-
-    Returns:
-        The PIDs of the reactive runner processes sorted by start time in descending order.
-
-    Raises:
-        ReactiveRunnerError: If the command to get the PIDs fails
-    """
-    result = secure_run_subprocess(cmd=PIDS_COMMAND_LINE)
-    if result.returncode != 0:
-        raise ReactiveRunnerError("Failed to get list of processes")
-
-    return [
-        int(line.rstrip().rsplit(maxsplit=1)[-1])
-        for line in result.stdout.decode().split("\n")
-        if line.startswith(REACTIVE_RUNNER_CMD_LINE_PREFIX)
-    ]
-
-
-def _setup_logging_for_processes() -> None:
-    """Set up the log dir."""
-    if not REACTIVE_RUNNER_LOG_DIR.exists():
-        REACTIVE_RUNNER_LOG_DIR.mkdir()
-        shutil.chown(REACTIVE_RUNNER_LOG_DIR, user=UBUNTU_USER, group=UBUNTU_USER)
-
-
-def _spawn_runner(mq_uri: str, queue_name: str) -> None:
-    """Spawn a runner.
-
-    Args:
-        mq_uri: The message queue URI.
-        queue_name: The name of the queue.
-    """
-    env = {
-        "PYTHONPATH": os.environ["PYTHONPATH"],
-        MQ_URI_ENV_VAR: mq_uri,
-        QUEUE_NAME_ENV_VAR: queue_name,
+    metric_stats = {
+        event_name: delete_metric_stats.get(event_name, 0)
+        + cleanup_metric_stats.get(event_name, 0)
+        + flush_metric_stats.get(event_name, 0)
+        for event_name in set(delete_metric_stats)
+        | set(cleanup_metric_stats)
+        | set(flush_metric_stats)
     }
-    # We do not want to wait for the process to finish, so we do not use with statement.
-    # We trust the command.
-    command = " ".join(
-        [
-            PYTHON_BIN,
-            "-m",
-            REACTIVE_RUNNER_SCRIPT_MODULE,
-            ">>",
-            # $$ will be replaced by the PID of the process, so we can track the error log easily.
-            f"{REACTIVE_RUNNER_LOG_DIR}/$$.log",
-            "2>&1",
-        ]
-    )
-    logger.debug("Spawning a new reactive runner process with command: %s", command)
-    process = subprocess.Popen(  # pylint: disable=consider-using-with  # nosec
-        command,
-        shell=True,
-        env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        user=UBUNTU_USER,
+
+    processes_created = process_manager.reconcile(
+        quantity=process_quantity,
+        runner_config=runner_config,
     )
 
-    logger.info("Spawned a new reactive runner process with pid %s", process.pid)
+    return ReconcileResult(processes_diff=processes_created, metric_stats=metric_stats)

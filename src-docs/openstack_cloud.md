@@ -6,36 +6,10 @@
 Module for managing Openstack cloud. 
 
 
----
-
-<a href="../src/github_runner_manager/openstack_cloud/__init__.py#L62"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
-
-## <kbd>function</kbd> `initialize`
-
-```python
-initialize(cloud_config: dict) → None
-```
-
-Initialize Openstack integration. 
-
-Validates config and writes it to disk. 
-
-
-
-**Raises:**
- 
- - <b>`OpenStackInvalidConfigError`</b>:  If there was an given cloud config. 
-
-
-
-**Args:**
- 
- - <b>`cloud_config`</b>:  The configuration in clouds.yaml format to apply. 
-
 
 ---
 
-<a href="../src/github_runner_manager/openstack_cloud/__init__.py#L20"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/openstack_cloud/__init__.py#L14"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `CloudConfig`
 The parsed clouds.yaml configuration dictionary. 

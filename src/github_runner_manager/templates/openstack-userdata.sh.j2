@@ -31,6 +31,8 @@ systemctl enable nftables.service
 nft -f /etc/nftables.conf
 {% endif %}
 
+sudo apt-get update
+
 adduser ubuntu lxd
 adduser ubuntu adm
 
@@ -97,6 +99,8 @@ write_post_metrics(){
           }' > "{{ metrics_exchange_path }}/post-job-metrics.json"
     fi
 }
+
+date +%s >  {{ metrics_exchange_path}}/runner-installed.timestamp
 
 # Run runner
 # We want to capture the exit code of the run.sh script and write the post-job metrics.

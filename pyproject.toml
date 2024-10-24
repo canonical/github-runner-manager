@@ -3,7 +3,7 @@
 
 [project]
 name = "github-runner-manager"
-version = "0.1.2"
+version = "0.4.3"
 authors = [
     { name = "Canonical IS DevOps", email = "is-devops-team@canonical.com" },
 ]
@@ -46,7 +46,7 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 79
+fail_under = 80
 show_missing = true
 
 

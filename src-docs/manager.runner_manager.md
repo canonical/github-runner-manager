@@ -77,6 +77,7 @@ Configuration for the runner manager.
 
 **Attributes:**
  
+ - <b>`name`</b>:  A name to identify this manager. 
  - <b>`token`</b>:  GitHub personal access token to query GitHub API. 
  - <b>`path`</b>:  Path to GitHub repository or organization to registry the runners. 
 
@@ -85,7 +86,7 @@ Configuration for the runner manager.
 ### <kbd>method</kbd> `__init__`
 
 ```python
-__init__(token: str, path: GitHubOrg | GitHubRepo) → None
+__init__(name: str, token: str, path: GitHubOrg | GitHubRepo) → None
 ```
 
 
@@ -98,7 +99,7 @@ __init__(token: str, path: GitHubOrg | GitHubRepo) → None
 
 ---
 
-<a href="../src/github_runner_manager/manager/runner_manager.py#L94"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/manager/runner_manager.py#L96"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `RunnerManager`
 Manage the runners. 
@@ -110,16 +111,12 @@ Manage the runners.
  - <b>`manager_name`</b>:  A name to identify this manager. 
  - <b>`name_prefix`</b>:  The name prefix of the runners. 
 
-<a href="../src/github_runner_manager/manager/runner_manager.py#L102"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/manager/runner_manager.py#L104"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `__init__`
 
 ```python
-__init__(
-    manager_name: str,
-    cloud_runner_manager: CloudRunnerManager,
-    config: RunnerManagerConfig
-)
+__init__(cloud_runner_manager: CloudRunnerManager, config: RunnerManagerConfig)
 ```
 
 Construct the object. 
@@ -128,7 +125,6 @@ Construct the object.
 
 **Args:**
  
- - <b>`manager_name`</b>:  A name to identify this manager. 
  - <b>`cloud_runner_manager`</b>:  For managing the cloud instance of the runner. 
  - <b>`config`</b>:  Configuration of this class. 
 
@@ -159,7 +155,7 @@ Run cleanup of the runners and other resources.
 ### <kbd>method</kbd> `create_runners`
 
 ```python
-create_runners(num: int) → tuple[str]
+create_runners(num: int) → tuple[str, ]
 ```
 
 Create runners. 

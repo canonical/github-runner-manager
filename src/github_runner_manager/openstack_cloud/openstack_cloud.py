@@ -4,6 +4,7 @@
 """Class for accessing OpenStack API for managing servers."""
 
 import logging
+import shutil
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -14,7 +15,6 @@ from typing import Iterable, Iterator, cast
 import openstack
 import openstack.exceptions
 import paramiko
-import yaml
 from fabric import Connection as SSHConnection
 from openstack.compute.v2.keypair import Keypair as OpenstackKeypair
 from openstack.compute.v2.server import Server as OpenstackServer
@@ -23,19 +23,39 @@ from openstack.network.v2.security_group import SecurityGroup as OpenstackSecuri
 from paramiko.ssh_exception import NoValidConnectionsError
 
 from github_runner_manager.errors import KeyfileError, OpenStackError, SSHError
+from github_runner_manager.openstack_cloud.constants import CREATE_SERVER_TIMEOUT
 from github_runner_manager.utilities import retry
 
 logger = logging.getLogger(__name__)
 
-_CLOUDS_YAML_PATH = Path.home() / ".config/openstack/clouds.yaml"
-
 # Update the version when the security group rules are not backward compatible.
 _SECURITY_GROUP_NAME = "github-runner-v1"
 
-_CREATE_SERVER_TIMEOUT = 5 * 60
 _SSH_TIMEOUT = 30
-_SSH_KEY_PATH = Path("/home/ubuntu/.ssh")
 _TEST_STRING = "test_string"
+
+
+@dataclass
+class OpenStackCredentials:
+    """OpenStack credentials.
+
+    Attributes:
+        auth_url: The auth url of the OpenStack host.
+        project_name: The project name to log in to.
+        username: The username to login with.
+        password: The password to login with.
+        region_name: The region.
+        user_domain_name: The domain name containing the user.
+        project_domain_name: The domain name containing the project.
+    """
+
+    auth_url: str
+    project_name: str
+    username: str
+    password: str
+    region_name: str
+    user_domain_name: str
+    project_domain_name: str
 
 
 @dataclass
@@ -43,18 +63,20 @@ class OpenstackInstance:
     """Represents an OpenStack instance.
 
     Attributes:
-        server_id: ID of server assigned by OpenStack.
-        server_name: Name of the server on OpenStack.
+        addresses: IP addresses assigned to the server.
+        created_at: The timestamp in which the instance was created at.
         instance_id: ID used by OpenstackCloud class to manage the instances. See docs on the
             OpenstackCloud.
-        addresses: IP addresses assigned to the server.
+        server_id: ID of server assigned by OpenStack.
+        server_name: Name of the server on OpenStack.
         status: Status of the server.
     """
 
+    addresses: list[str]
+    created_at: datetime
+    instance_id: str
     server_id: str
     server_name: str
-    instance_id: str
-    addresses: list[str]
     status: str
 
     def __init__(self, server: OpenstackServer, prefix: str):
@@ -67,35 +89,30 @@ class OpenstackInstance:
         Raises:
             ValueError: Provided server should not be managed under this prefix.
         """
-        self.server_id = server.id
-        self.server_name = server.name
-        self.status = server.status
+        if not server.name.startswith(f"{prefix}-"):
+            # Should never happen.
+            raise ValueError(
+                f"Found openstack server {server.name} managed under prefix {prefix}, contact devs"
+            )
         self.addresses = [
             address["addr"]
             for network_addresses in server.addresses.values()
             for address in network_addresses
         ]
-
-        if not self.server_name.startswith(f"{prefix}-"):
-            # Should never happen.
-            raise ValueError(
-                f"Found openstack server {server.name} managed under prefix {prefix}, contact devs"
-            )
-        self.instance_id = self.server_name[len(prefix) + 1 :]
+        self.created_at = datetime.strptime(server.created_at, "%Y-%m-%dT%H:%M:%SZ")
+        self.instance_id = server.name[len(prefix) + 1 :]
+        self.server_id = server.id
+        self.server_name = server.name
+        self.status = server.status
 
 
 @contextmanager
 @retry(tries=2, delay=5, local_logger=logger)
-def _get_openstack_connection(
-    clouds_config: dict[str, dict], cloud: str
-) -> Iterator[OpenstackConnection]:
+def _get_openstack_connection(credentials: OpenStackCredentials) -> Iterator[OpenstackConnection]:
     """Create a connection context managed object, to be used within with statements.
 
-    The file of _CLOUDS_YAML_PATH should only be modified by this function.
-
     Args:
-        clouds_config: The configuration in clouds.yaml format to apply.
-        cloud: The name of cloud to use in the clouds.yaml.
+        credentials: The OpenStack authorization information.
 
     Raises:
         OpenStackError: if the credentials provided is not authorized.
@@ -103,18 +120,18 @@ def _get_openstack_connection(
     Yields:
         An openstack.connection.Connection object.
     """
-    if not _CLOUDS_YAML_PATH.exists():
-        _CLOUDS_YAML_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-    # Concurrency: Very small chance for the file to be corrupted due to multiple process calling
-    # this function and writing the file at the same time. This should cause the `conn.authorize`
-    # to fail, and retry of this function would resolve this.
-    _CLOUDS_YAML_PATH.write_text(data=yaml.dump(clouds_config), encoding="utf-8")
-
     # api documents that keystoneauth1.exceptions.MissingRequiredOptions can be raised but
     # I could not reproduce it. Therefore, no catch here for such exception.
     try:
-        with openstack.connect(cloud=cloud) as conn:
+        with openstack.connect(
+            auth_url=credentials.auth_url,
+            project_name=credentials.project_name,
+            username=credentials.username,
+            password=credentials.password,
+            region_name=credentials.region_name,
+            user_domain_name=credentials.user_domain_name,
+            project_domain_name=credentials.project_domain_name,
+        ) as conn:
             conn.authorize()
             yield conn
     # pylint thinks this isn't an exception, but does inherit from Exception class.
@@ -131,22 +148,23 @@ class OpenstackCloud:
     get_server_name.
     """
 
-    def __init__(self, clouds_config: dict[str, dict], cloud: str, prefix: str):
+    def __init__(self, credentials: OpenStackCredentials, prefix: str, system_user: str):
         """Create the object.
 
         Args:
-            clouds_config: The openstack clouds.yaml in dict format.
-            cloud: The name of cloud to use in the clouds.yaml.
+            credentials: The OpenStack authorization information.
             prefix: Prefix attached to names of resource managed by this instance. Used for
                 identifying which resource belongs to this instance.
+            system_user: The system user to own the key files.
         """
-        self._clouds_config = clouds_config
-        self._cloud = cloud
+        self._credentials = credentials
         self.prefix = prefix
+        self._system_user = system_user
+        self._ssh_key_dir = Path(f"~{system_user}").expanduser() / ".ssh"
 
     # Ignore "Too many arguments" as 6 args should be fine. Move to a dataclass if new args are
     # added.
-    def launch_instance(  # pylint: disable=R0913
+    def launch_instance(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self, instance_id: str, image: str, flavor: str, network: str, cloud_init: str
     ) -> OpenstackInstance:
         """Create an OpenStack instance.
@@ -167,11 +185,9 @@ class OpenstackCloud:
         full_name = self.get_server_name(instance_id)
         logger.info("Creating openstack server with %s", full_name)
 
-        with _get_openstack_connection(
-            clouds_config=self._clouds_config, cloud=self._cloud
-        ) as conn:
+        with _get_openstack_connection(credentials=self._credentials) as conn:
             security_group = OpenstackCloud._ensure_security_group(conn)
-            keypair = OpenstackCloud._setup_keypair(conn, full_name)
+            keypair = self._setup_keypair(conn, full_name)
 
             try:
                 server = conn.create_server(
@@ -183,7 +199,7 @@ class OpenstackCloud:
                     security_groups=[security_group.id],
                     userdata=cloud_init,
                     auto_ip=False,
-                    timeout=_CREATE_SERVER_TIMEOUT,
+                    timeout=CREATE_SERVER_TIMEOUT,
                     wait=True,
                 )
             except openstack.exceptions.ResourceTimeout as err:
@@ -213,9 +229,7 @@ class OpenstackCloud:
         full_name = self.get_server_name(instance_id)
         logger.info("Getting openstack server with %s", full_name)
 
-        with _get_openstack_connection(
-            clouds_config=self._clouds_config, cloud=self._cloud
-        ) as conn:
+        with _get_openstack_connection(credentials=self._credentials) as conn:
             server = OpenstackCloud._get_and_ensure_unique_server(conn, full_name)
             if server is not None:
                 return OpenstackInstance(server, self.prefix)
@@ -230,9 +244,7 @@ class OpenstackCloud:
         full_name = self.get_server_name(instance_id)
         logger.info("Deleting openstack server with %s", full_name)
 
-        with _get_openstack_connection(
-            clouds_config=self._clouds_config, cloud=self._cloud
-        ) as conn:
+        with _get_openstack_connection(credentials=self._credentials) as conn:
             self._delete_instance(conn, full_name)
 
     def _delete_instance(self, conn: OpenstackConnection, full_name: str) -> None:
@@ -249,7 +261,7 @@ class OpenstackCloud:
             server = OpenstackCloud._get_and_ensure_unique_server(conn, full_name)
             if server is not None:
                 conn.delete_server(name_or_id=server.id)
-            OpenstackCloud._delete_keypair(conn, full_name)
+            self._delete_keypair(conn, full_name)
         except (
             openstack.exceptions.SDKException,
             openstack.exceptions.ResourceTimeout,
@@ -269,7 +281,7 @@ class OpenstackCloud:
         Returns:
             SSH connection object.
         """
-        key_path = OpenstackCloud._get_key_path(instance.server_name)
+        key_path = self._get_key_path(instance.server_name)
 
         if not key_path.exists():
             raise KeyfileError(
@@ -317,9 +329,7 @@ class OpenstackCloud:
         """
         logger.info("Getting all openstack servers managed by the charm")
 
-        with _get_openstack_connection(
-            clouds_config=self._clouds_config, cloud=self._cloud
-        ) as conn:
+        with _get_openstack_connection(credentials=self._credentials) as conn:
             instance_list = self._get_openstack_instances(conn)
             server_names = set(server.name for server in instance_list)
 
@@ -334,9 +344,7 @@ class OpenstackCloud:
 
     def cleanup(self) -> None:
         """Cleanup unused key files and openstack keypairs."""
-        with _get_openstack_connection(
-            clouds_config=self._clouds_config, cloud=self._cloud
-        ) as conn:
+        with _get_openstack_connection(credentials=self._credentials) as conn:
             instances = self._get_openstack_instances(conn)
             exclude_list = [server.name for server in instances]
             self._cleanup_key_files(exclude_list)
@@ -360,13 +368,11 @@ class OpenstackCloud:
             exclude_instances: The keys of these instance will not be deleted.
         """
         logger.info("Cleaning up SSH key files")
-        exclude_filename = set(
-            OpenstackCloud._get_key_path(instance) for instance in exclude_instances
-        )
+        exclude_filename = set(self._get_key_path(instance) for instance in exclude_instances)
 
         total = 0
         deleted = 0
-        for path in _SSH_KEY_PATH.iterdir():
+        for path in self._ssh_key_dir.iterdir():
             # Find key file from this application.
             if path.is_file() and path.name.startswith(self.prefix) and path.name.endswith(".key"):
                 total += 1
@@ -437,13 +443,11 @@ class OpenstackCloud:
         if not servers:
             return None
 
-        # 2024/08/14: The `format` arg for `strptime` is the default format.
-        # This is only provided to get around a bug of the function with type checking.
         latest_server = reduce(
             lambda a, b: (
                 a
-                if datetime.strptime(a.created_at, "a %b %d %H:%M:%S %Y")
-                < datetime.strptime(b.create_at, "a %b %d %H:%M:%S %Y")
+                if datetime.fromisoformat(a.created_at.replace("Z", "+00:00"))
+                < datetime.fromisoformat(b.created_at.replace("Z", "+00:00"))
                 else b
             ),
             servers,
@@ -462,8 +466,7 @@ class OpenstackCloud:
 
         return latest_server
 
-    @staticmethod
-    def _get_key_path(name: str) -> Path:
+    def _get_key_path(self, name: str) -> Path:
         """Get the filepath for storing private SSH of a runner.
 
         Args:
@@ -472,10 +475,9 @@ class OpenstackCloud:
         Returns:
             Path to reserved for the key file of the runner.
         """
-        return _SSH_KEY_PATH / f"{name}.key"
+        return self._ssh_key_dir / f"{name}.key"
 
-    @staticmethod
-    def _setup_keypair(conn: OpenstackConnection, name: str) -> OpenstackKeypair:
+    def _setup_keypair(self, conn: OpenstackConnection, name: str) -> OpenstackKeypair:
         """Create OpenStack keypair.
 
         Args:
@@ -485,26 +487,27 @@ class OpenstackCloud:
         Returns:
             The OpenStack keypair.
         """
-        key_path = OpenstackCloud._get_key_path(name)
+        key_path = self._get_key_path(name)
 
         if key_path.exists():
             logger.warning("Existing private key file for %s found, removing it.", name)
             key_path.unlink(missing_ok=True)
 
         keypair = conn.create_keypair(name=name)
-        key_path.parent.mkdir(parents=True, exist_ok=True)
         key_path.write_text(keypair.private_key)
+        # the charm executes this as root, so we need to change the ownership of the key file
+        shutil.chown(key_path, user=self._system_user)
         key_path.chmod(0o400)
         return keypair
 
-    @staticmethod
-    def _delete_keypair(conn: OpenstackConnection, name: str) -> None:
+    def _delete_keypair(self, conn: OpenstackConnection, name: str) -> None:
         """Delete OpenStack keypair.
 
         Args:
             conn: The connection object to access OpenStack cloud.
             name: The name of the keypair.
         """
+        logger.debug("Deleting keypair for %s", name)
         try:
             # Keypair have unique names, access by ID is not needed.
             if not conn.delete_keypair(name):
@@ -512,7 +515,7 @@ class OpenstackCloud:
         except (openstack.exceptions.SDKException, openstack.exceptions.ResourceTimeout):
             logger.warning("Unable to delete keypair for %s", name, stack_info=True)
 
-        key_path = OpenstackCloud._get_key_path(name)
+        key_path = self._get_key_path(name)
         key_path.unlink(missing_ok=True)
 
     @staticmethod

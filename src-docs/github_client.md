@@ -81,19 +81,43 @@ Delete the self-hosted runner from GitHub.
 
 ---
 
-<a href="../src/github_runner_manager/github_client.py#L203"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/github_client.py#L244"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get_job_info`
 
 ```python
-get_job_info(
+get_job_info(path: GitHubRepo, job_id: str) → JobInfo
+```
+
+Get information about a job identified by the job id. 
+
+
+
+**Args:**
+ 
+ - <b>`path`</b>:  GitHub repository path in the format '<owner>/<repo>'. 
+ - <b>`job_id`</b>:  The job id. 
+
+
+
+**Returns:**
+ The JSON response from the API. 
+
+---
+
+<a href="../src/github_runner_manager/github_client.py#L203"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+
+### <kbd>method</kbd> `get_job_info_by_runner_name`
+
+```python
+get_job_info_by_runner_name(
     path: GitHubRepo,
     workflow_run_id: str,
     runner_name: str
-) → JobStats
+) → JobInfo
 ```
 
-Get information about a job for a specific workflow run. 
+Get information about a job for a specific workflow run identified by the runner name. 
 
 
 
@@ -107,7 +131,7 @@ Get information about a job for a specific workflow run.
 
 **Raises:**
  
- - <b>`TokenError`</b>:  if there was an error with the Github token crdential provided. 
+ - <b>`TokenError`</b>:  if there was an error with the Github token credential provided. 
  - <b>`JobNotFoundError`</b>:  If no jobs were found. 
 
 

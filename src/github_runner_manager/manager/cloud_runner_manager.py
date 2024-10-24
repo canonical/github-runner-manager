@@ -94,6 +94,33 @@ class CloudRunnerState(str, Enum):
         return state
 
 
+class CloudInitStatus(str, Enum):
+    """Represents the state of cloud-init script.
+
+    The cloud init script is used to launch ephemeral GitHub runners. If the script is being
+    initialized, GitHub runner is listening for jobs or GitHub runner is running the job, the
+    cloud-init script should report "running" status.
+
+    Refer to the official documentation on cloud-init status:
+    https://cloudinit.readthedocs.io/en/latest/howto/status.html.
+
+    Attributes:
+        NOT_STARTED: The cloud-init script has not yet been started.
+        RUNNING: The cloud-init script is running.
+        DONE: The cloud-init script has completed successfully.
+        ERROR: There was an error while running the cloud-init script.
+        DEGRADED: There was a non-critical issue while running the cloud-inits script.
+        DISABLED: Cloud init was disabled by other system configurations.
+    """
+
+    NOT_STARTED = "not started"
+    RUNNING = "running"
+    DONE = "done"
+    ERROR = "error"
+    DEGRADED = "degraded"
+    DISABLED = "disabled"
+
+
 @dataclass
 class GitHubRunnerConfig:
     """Configuration for GitHub runner spawned.

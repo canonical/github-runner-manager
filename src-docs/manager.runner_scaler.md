@@ -9,7 +9,7 @@ Module for scaling the runners amount.
 
 ---
 
-<a href="../src/github_runner_manager/manager/runner_scaler.py#L28"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/manager/runner_scaler.py#L26"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `RunnerInfo`
 Information on the runners. 
@@ -50,17 +50,20 @@ __init__(
 
 ---
 
-<a href="../src/github_runner_manager/manager/runner_scaler.py#L49"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/manager/runner_scaler.py#L60"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ## <kbd>class</kbd> `RunnerScaler`
 Manage the reconcile of runners. 
 
-<a href="../src/github_runner_manager/manager/runner_scaler.py#L52"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/manager/runner_scaler.py#L63"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `__init__`
 
 ```python
-__init__(runner_manager: RunnerManager, reactive_config: ReactiveConfig | None)
+__init__(
+    runner_manager: RunnerManager,
+    reactive_runner_config: RunnerConfig | None
+)
 ```
 
 Construct the object. 
@@ -70,14 +73,14 @@ Construct the object.
 **Args:**
  
  - <b>`runner_manager`</b>:  The RunnerManager to perform runner reconcile. 
- - <b>`reactive_config`</b>:  Reactive runner configuration. 
+ - <b>`reactive_runner_config`</b>:  Reactive runner configuration. 
 
 
 
 
 ---
 
-<a href="../src/github_runner_manager/manager/runner_scaler.py#L98"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/manager/runner_scaler.py#L111"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `flush`
 
@@ -100,7 +103,7 @@ Flush the runners.
 
 ---
 
-<a href="../src/github_runner_manager/manager/runner_scaler.py#L62"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/manager/runner_scaler.py#L75"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `get_runner_info`
 
@@ -117,7 +120,7 @@ Get information on the runners.
 
 ---
 
-<a href="../src/github_runner_manager/manager/runner_scaler.py#L116"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
+<a href="../src/github_runner_manager/manager/runner_scaler.py#L129"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
 
 ### <kbd>method</kbd> `reconcile`
 
@@ -136,6 +139,6 @@ Reconcile the quantity of runners.
 
 
 **Returns:**
- The Change in number of runners. 
+ The Change in number of runners or reactive processes. 
 
 
