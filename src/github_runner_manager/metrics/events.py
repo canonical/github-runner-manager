@@ -141,6 +141,8 @@ class Reconciliation(Event):
         crashed_runners: The number of crashed runners.
         idle_runners: The number of idle runners.
         active_runners: The number of active runners.
+        expected_runners: The expected number of runners. This is optional as it is not suitable
+            for reactive runners.
         duration: The duration of the reconciliation in seconds.
     """
 
@@ -148,6 +150,7 @@ class Reconciliation(Event):
     crashed_runners: int
     idle_runners: int
     active_runners: int
+    expected_runners: int | None
     duration: NonNegativeFloat
 
 
