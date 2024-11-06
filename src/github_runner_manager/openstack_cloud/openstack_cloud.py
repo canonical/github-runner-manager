@@ -25,7 +25,6 @@ from paramiko.ssh_exception import NoValidConnectionsError
 
 from github_runner_manager.errors import KeyfileError, OpenStackError, SSHError
 from github_runner_manager.openstack_cloud.constants import CREATE_SERVER_TIMEOUT
-from github_runner_manager.utilities import retry
 
 logger = logging.getLogger(__name__)
 
@@ -148,37 +147,30 @@ def catch_openstack_errors(func: Callable[P, T]) -> Callable[P, T]:
 
 
 @contextmanager
-@retry(tries=2, delay=5, local_logger=logger)
 def _get_openstack_connection(credentials: OpenStackCredentials) -> Iterator[OpenstackConnection]:
     """Create a connection context managed object, to be used within with statements.
 
+    Using the context manager ensures that the connection is properly closed after use.
+
     Args:
         credentials: The OpenStack authorization information.
-
-    Raises:
-        OpenStackError: if the credentials provided is not authorized.
 
     Yields:
         An openstack.connection.Connection object.
     """
     # api documents that keystoneauth1.exceptions.MissingRequiredOptions can be raised but
     # I could not reproduce it. Therefore, no catch here for such exception.
-    try:
-        with openstack.connect(
-            auth_url=credentials.auth_url,
-            project_name=credentials.project_name,
-            username=credentials.username,
-            password=credentials.password,
-            region_name=credentials.region_name,
-            user_domain_name=credentials.user_domain_name,
-            project_domain_name=credentials.project_domain_name,
-        ) as conn:
-            conn.authorize()
-            yield conn
-    # pylint thinks this isn't an exception, but does inherit from Exception class.
-    except openstack.exceptions.HttpException as exc:  # pylint: disable=bad-exception-cause
-        logger.exception("OpenStack API call failure")
-        raise OpenStackError("Failed OpenStack API call") from exc
+    with openstack.connect(
+        auth_url=credentials.auth_url,
+        project_name=credentials.project_name,
+        username=credentials.username,
+        password=credentials.password,
+        region_name=credentials.region_name,
+        user_domain_name=credentials.user_domain_name,
+        project_domain_name=credentials.project_domain_name,
+    ) as conn:
+        conn.authorize()
+        yield conn
 
 
 class OpenstackCloud:
