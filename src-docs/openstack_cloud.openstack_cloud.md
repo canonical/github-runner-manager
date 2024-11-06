@@ -9,29 +9,6 @@ Class for accessing OpenStack API for managing servers.
 ---------------
 - **CREATE_SERVER_TIMEOUT**
 
----
-
-<a href="../src/github_runner_manager/openstack_cloud/openstack_cloud.py#L113"><img align="right" style="float:right;" src="https://img.shields.io/badge/-source-cccccc?style=flat-square"></a>
-
-## <kbd>function</kbd> `catch_openstack_errors`
-
-```python
-catch_openstack_errors(func: Callable[~P, ~T]) → Callable[~P, ~T]
-```
-
-Decorate a function to wrap OpenStack exceptions in a custom exception and log them. 
-
-
-
-**Args:**
- 
- - <b>`func`</b>:  The function to decorate. 
-
-
-
-**Returns:**
- The decorated function. 
-
 
 ---
 

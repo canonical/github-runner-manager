@@ -110,7 +110,7 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
-def catch_openstack_errors(func: Callable[P, T]) -> Callable[P, T]:
+def _catch_openstack_errors(func: Callable[P, T]) -> Callable[P, T]:
     """Decorate a function to wrap OpenStack exceptions in a custom exception and log them.
 
     Args:
@@ -195,7 +195,7 @@ class OpenstackCloud:
         self._system_user = system_user
         self._ssh_key_dir = Path(f"~{system_user}").expanduser() / ".ssh"
 
-    @catch_openstack_errors
+    @_catch_openstack_errors
     # Ignore "Too many arguments" as 6 args should be fine. Move to a dataclass if new args are
     # added.
     def launch_instance(  # pylint: disable=too-many-arguments, too-many-positional-arguments
@@ -251,7 +251,7 @@ class OpenstackCloud:
 
             return OpenstackInstance(server, self.prefix)
 
-    @catch_openstack_errors
+    @_catch_openstack_errors
     def get_instance(self, instance_id: str) -> OpenstackInstance | None:
         """Get OpenStack instance by instance ID.
 
@@ -270,7 +270,7 @@ class OpenstackCloud:
                 return OpenstackInstance(server, self.prefix)
         return None
 
-    @catch_openstack_errors
+    @_catch_openstack_errors
     def delete_instance(self, instance_id: str) -> None:
         """Delete a openstack instance.
 
@@ -304,7 +304,7 @@ class OpenstackCloud:
         ) as err:
             raise OpenStackError(f"Failed to remove openstack runner {full_name}") from err
 
-    @catch_openstack_errors
+    @_catch_openstack_errors
     def get_ssh_connection(self, instance: OpenstackInstance) -> SSHConnection:
         """Get SSH connection to an OpenStack instance.
 
@@ -358,7 +358,7 @@ class OpenstackCloud:
             f"addresses: {instance.addresses}"
         )
 
-    @catch_openstack_errors
+    @_catch_openstack_errors
     def get_instances(self) -> tuple[OpenstackInstance, ...]:
         """Get all OpenStack instances.
 
@@ -380,7 +380,7 @@ class OpenstackCloud:
                 if server is not None
             )
 
-    @catch_openstack_errors
+    @_catch_openstack_errors
     def cleanup(self) -> None:
         """Cleanup unused key files and openstack keypairs."""
         with _get_openstack_connection(credentials=self._credentials) as conn:
