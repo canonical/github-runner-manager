@@ -8,7 +8,11 @@ import time
 from dataclasses import dataclass
 
 import github_runner_manager.reactive.runner_manager as reactive_runner_manager
-from github_runner_manager.errors import IssueMetricEventError, MissingServerConfigError
+from github_runner_manager.errors import (
+    CloudError,
+    IssueMetricEventError,
+    MissingServerConfigError,
+)
 from github_runner_manager.manager.cloud_runner_manager import HealthState
 from github_runner_manager.manager.github_runner_manager import GitHubRunnerState
 from github_runner_manager.manager.runner_manager import (
@@ -180,6 +184,8 @@ class RunnerScaler:
                 reconcile_result = self._reconcile_non_reactive(quantity)
                 reconcile_diff = reconcile_result.runner_diff
                 metric_stats = reconcile_result.metric_stats
+        except CloudError:
+            logger.exception("Failed to reconcile runners.")
         finally:
             runner_list = self._manager.get_runners()
             self._log_runners(runner_list)
