@@ -142,3 +142,9 @@ Reconcile the quantity of runners.
  The Change in number of runners or reactive processes. 
 
 
+
+**Raises:**
+ 
+ - <b>`ReconcileError`</b>:  If an expected error occurred during the reconciliation. 
+
+
