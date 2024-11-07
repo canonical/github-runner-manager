@@ -140,7 +140,7 @@ def _catch_openstack_errors(func: Callable[P, T]) -> Callable[P, T]:
             openstack.exceptions.SDKException,
             keystoneauth1.exceptions.ClientException,
         ) as exc:
-            logger.exception("OpenStack API call failure")
+            logger.error("OpenStack API call failure")
             raise OpenStackError("Failed OpenStack API call") from exc
 
     return exception_handling_wrapper
