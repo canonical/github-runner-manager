@@ -111,7 +111,7 @@ T = TypeVar("T")
 
 
 def _catch_openstack_errors(func: Callable[P, T]) -> Callable[P, T]:
-    """Decorate a function to wrap OpenStack exceptions in a custom exception and log them.
+    """Decorate a function to wrap OpenStack exceptions in a custom exception.
 
     Args:
         func: The function to decorate.
