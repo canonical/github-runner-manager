@@ -92,5 +92,6 @@ class SSHError(Exception):
 class KeyfileError(SSHError):
     """Represents missing keyfile for SSH."""
 
+
 class ReconcileError(Exception):
     """Base class for all reconcile errors."""

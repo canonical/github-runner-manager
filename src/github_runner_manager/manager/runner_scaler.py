@@ -11,7 +11,8 @@ import github_runner_manager.reactive.runner_manager as reactive_runner_manager
 from github_runner_manager.errors import (
     CloudError,
     IssueMetricEventError,
-    MissingServerConfigError, ReconcileError,
+    MissingServerConfigError,
+    ReconcileError,
 )
 from github_runner_manager.manager.cloud_runner_manager import HealthState
 from github_runner_manager.manager.github_runner_manager import GitHubRunnerState

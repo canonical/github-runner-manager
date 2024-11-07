@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from github_runner_manager.errors import ReconcileError, CloudError
+from github_runner_manager.errors import CloudError, ReconcileError
 from github_runner_manager.manager.cloud_runner_manager import CloudRunnerState, InstanceId
 from github_runner_manager.manager.github_runner_manager import GitHubRunnerState
 from github_runner_manager.manager.runner_manager import (
