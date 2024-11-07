@@ -200,6 +200,8 @@ class RunnerScaler:
             )
             _issue_reconciliation_metric(reconcile_metric_data)
 
+        logger.info("Finished reconciliation.")
+
         return reconcile_diff
 
     def _reconcile_non_reactive(self, expected_quantity: int) -> _ReconcileResult:
