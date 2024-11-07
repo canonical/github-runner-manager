@@ -389,6 +389,7 @@ class OpenstackCloud:
             self._cleanup_key_files(exclude_list)
             self._cleanup_openstack_keypairs(conn, exclude_list)
 
+    @_catch_openstack_errors
     def get_server_name(self, instance_id: str) -> str:
         """Get server name on OpenStack.
 
