@@ -8,7 +8,12 @@ import time
 from dataclasses import dataclass
 
 import github_runner_manager.reactive.runner_manager as reactive_runner_manager
-from github_runner_manager.errors import IssueMetricEventError, MissingServerConfigError
+from github_runner_manager.errors import (
+    CloudError,
+    IssueMetricEventError,
+    MissingServerConfigError,
+    ReconcileError,
+)
 from github_runner_manager.manager.cloud_runner_manager import HealthState
 from github_runner_manager.manager.github_runner_manager import GitHubRunnerState
 from github_runner_manager.manager.runner_manager import (
@@ -55,6 +60,28 @@ class _ReconcileResult:
 
     runner_diff: int
     metric_stats: IssuedMetricEventsStats
+
+
+@dataclass
+class _ReconcileMetricData:
+    """Data used to issue the reconciliation metric.
+
+    Attributes:
+        start_timestamp: The start timestamp of the reconciliation.
+        end_timestamp: The end timestamp of the reconciliation.
+        metric_stats: The metric stats issued by the runner manager.
+        runner_list: The list of runners in the cloud.
+        flavor: The name of the flavor in the reconciliation event.
+        expected_runner_quantity: The expected number of runners.
+            May be None if reactive mode is enabled.
+    """
+
+    start_timestamp: float
+    end_timestamp: float
+    metric_stats: IssuedMetricEventsStats
+    runner_list: tuple[RunnerInstance]
+    flavor: str
+    expected_runner_quantity: int | None = None
 
 
 class RunnerScaler:
@@ -134,11 +161,16 @@ class RunnerScaler:
 
         Returns:
             The Change in number of runners or reactive processes.
+
+        Raises:
+            ReconcileError: If an expected error occurred during the reconciliation.
         """
         logger.info("Start reconcile to %s runner", quantity)
 
         metric_stats = {}
         start_timestamp = time.time()
+
+        expected_runner_quantity = quantity if self._reactive_config is None else None
 
         try:
             if self._reactive_config is not None:
@@ -156,13 +188,24 @@ class RunnerScaler:
                 reconcile_result = self._reconcile_non_reactive(quantity)
                 reconcile_diff = reconcile_result.runner_diff
                 metric_stats = reconcile_result.metric_stats
+        except CloudError as exc:
+            logger.error("Failed to reconcile runners.")
+            raise ReconcileError("Failed to reconcile runners.") from exc
         finally:
             runner_list = self._manager.get_runners()
             self._log_runners(runner_list)
             end_timestamp = time.time()
-            self._issue_reconciliation_metric(
-                start_timestamp, end_timestamp, metric_stats, runner_list
+            reconcile_metric_data = _ReconcileMetricData(
+                start_timestamp=start_timestamp,
+                end_timestamp=end_timestamp,
+                metric_stats=metric_stats,
+                runner_list=runner_list,
+                flavor=self._manager.manager_name,
+                expected_runner_quantity=expected_runner_quantity,
             )
+            _issue_reconciliation_metric(reconcile_metric_data)
+
+        logger.info("Finished reconciliation.")
 
         return reconcile_diff
 
@@ -238,50 +281,52 @@ class RunnerScaler:
         )
         logger.info("Found %s unhealthy runners: %s", len(unhealthy_runners), unhealthy_runners)
 
-    def _issue_reconciliation_metric(
-        self,
-        start_timestamp: float,
-        end_timestamp: float,
-        metric_stats: IssuedMetricEventsStats,
-        runner_list: tuple[RunnerInstance],
-    ) -> None:
-        """Issue the reconciliation metric.
 
-        Args:
-            start_timestamp: The start timestamp of the reconciliation.
-            end_timestamp: The end timestamp of the reconciliation.
-            metric_stats: The metric stats.
-            runner_list: The list of runners.
-        """
-        idle_runners = {
-            runner.name for runner in runner_list if runner.github_state == GitHubRunnerState.IDLE
-        }
+def _issue_reconciliation_metric(
+    reconcile_metric_data: _ReconcileMetricData,
+) -> None:
+    """Issue the reconciliation metric.
 
-        offline_healthy_runners = {
-            runner.name
-            for runner in runner_list
-            if runner.github_state == GitHubRunnerState.OFFLINE
-            and runner.health == HealthState.HEALTHY
-        }
-        available_runners = idle_runners | offline_healthy_runners
-        active_runners = {
-            runner.name for runner in runner_list if runner.github_state == GitHubRunnerState.BUSY
-        }
-        logger.info("Current available runners (idle + healthy offline): %s", available_runners)
-        logger.info("Current active runners: %s", active_runners)
+    Args:
+        reconcile_metric_data: The data used to issue the reconciliation metric.
+    """
+    idle_runners = {
+        runner.name
+        for runner in reconcile_metric_data.runner_list
+        if runner.github_state == GitHubRunnerState.IDLE
+    }
 
-        try:
+    offline_healthy_runners = {
+        runner.name
+        for runner in reconcile_metric_data.runner_list
+        if runner.github_state == GitHubRunnerState.OFFLINE
+        and runner.health == HealthState.HEALTHY
+    }
+    available_runners = idle_runners | offline_healthy_runners
+    active_runners = {
+        runner.name
+        for runner in reconcile_metric_data.runner_list
+        if runner.github_state == GitHubRunnerState.BUSY
+    }
+    logger.info("Current available runners (idle + healthy offline): %s", available_runners)
+    logger.info("Current active runners: %s", active_runners)
 
-            metric_events.issue_event(
-                metric_events.Reconciliation(
-                    timestamp=time.time(),
-                    flavor=self._manager.manager_name,
-                    crashed_runners=metric_stats.get(metric_events.RunnerStart, 0)
-                    - metric_stats.get(metric_events.RunnerStop, 0),
-                    idle_runners=len(available_runners),
-                    active_runners=len(active_runners),
-                    duration=end_timestamp - start_timestamp,
+    try:
+
+        metric_events.issue_event(
+            metric_events.Reconciliation(
+                timestamp=time.time(),
+                flavor=reconcile_metric_data.flavor,
+                crashed_runners=reconcile_metric_data.metric_stats.get(
+                    metric_events.RunnerStart, 0
                 )
+                - reconcile_metric_data.metric_stats.get(metric_events.RunnerStop, 0),
+                idle_runners=len(available_runners),
+                active_runners=len(active_runners),
+                expected_runners=reconcile_metric_data.expected_runner_quantity,
+                duration=reconcile_metric_data.end_timestamp
+                - reconcile_metric_data.start_timestamp,
             )
-        except IssueMetricEventError:
-            logger.exception("Failed to issue Reconciliation metric")
+        )
+    except IssueMetricEventError:
+        logger.exception("Failed to issue Reconciliation metric")
